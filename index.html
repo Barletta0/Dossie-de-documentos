@@ -56,8 +56,9 @@
 <script>
 const DOC_TYPES = [
   "RG", "CNH", "CPF", "Comprovante de Residência",
-  "Holerite/Contracheque", "Comprovante Bancário",
-  "CTPS", "TRCT", "Certidão", "Contrato", "Conversas", "Outros"
+  "Holerite/Contracheque", "Comprovante Bancário", "Nota Fiscal",
+  "CTPS", "TRCT", "Extrato do FGTS", "Procuração",
+  "Declaração de Hipossuficiência", "Certidão", "Contrato", "Conversas", "Outros"
 ];
 
 const token = new URLSearchParams(window.location.search).get('token');
@@ -122,28 +123,68 @@ function handleFiles(fileList) {
   errorArea.innerHTML = '';
   const files = Array.from(fileList).filter(f => f.type.startsWith('image/') || f.type === 'application/pdf');
   files.forEach(file => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result;
-      const base64 = dataUrl.split(',')[1];
-      const doc = {
-        id: idCounter++,
-        file,
-        dataUrl,
-        base64,
-        mediaType: file.type,
-        isPdf: file.type === 'application/pdf',
-        status: 'pronto',
-        type: null,
-        competencia: null,
+    if (file.type === 'application/pdf') {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result;
+        const base64 = dataUrl.split(',')[1];
+        addDoc(file, dataUrl, base64, file.type, true);
       };
-      docs.push(doc);
-      renderDocList();
-      updateSendBtn();
-    };
-    reader.readAsDataURL(file);
+      reader.readAsDataURL(file);
+    } else {
+      normalizeImageOrientation(file)
+        .then(({ dataUrl, base64, mediaType }) => addDoc(file, dataUrl, base64, mediaType, false))
+        .catch(err => {
+          console.error('Erro ao normalizar imagem', file.name, err);
+          errorArea.innerHTML = '<div class="error-banner">Não consegui processar "' + file.name + '". Tenta enviar de novo.</div>';
+        });
+    }
   });
   fileInput.value = '';
+}
+
+function addDoc(file, dataUrl, base64, mediaType, isPdf) {
+  const doc = {
+    id: idCounter++,
+    file,
+    dataUrl,
+    base64,
+    mediaType,
+    isPdf,
+    status: 'pronto',
+    type: null,
+    competencia: null,
+    rotation: 0,
+  };
+  docs.push(doc);
+  renderDocList();
+  updateSendBtn();
+}
+
+// Redesenha a imagem num canvas, o que faz o navegador aplicar a
+// orientação correta (EXIF) direto nos pixels — assim a foto que a IA
+// analisa e a que vai pro PDF final são sempre a mesma, já em pé.
+function normalizeImageOrientation(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        const outType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+        const dataUrl = outType === 'image/jpeg' ? canvas.toDataURL(outType, 0.92) : canvas.toDataURL(outType);
+        resolve({ dataUrl, base64: dataUrl.split(',')[1], mediaType: outType });
+      };
+      img.onerror = () => reject(new Error('Falha ao carregar imagem'));
+      img.src = reader.result;
+    };
+    reader.onerror = () => reject(new Error('Falha ao ler arquivo'));
+    reader.readAsDataURL(file);
+  });
 }
 
 function renderDocList() {
