@@ -41,7 +41,7 @@ export default async function handler(req, res) {
             contentBlock,
             {
               type: 'text',
-              text: `Analise este documento e responda APENAS com um JSON, sem nenhum texto antes ou depois, no formato exato: {"tipo": "<uma destas categorias: ${typeList}>", "competencia": "<data de competência ou emissão do documento no formato AAAA-MM-DD, ou null se não houver data identificável>", "rotacao": <0, 90, 180 ou 270 — quantos graus girar a imagem no sentido horário para o documento ficar na posição correta de leitura; use 0 se já estiver correta>}`
+              text: `Analise este documento e responda APENAS com um JSON, sem nenhum texto antes ou depois, no formato exato: {"tipo": "<uma destas categorias: ${typeList}>", "competencia": "<data de competência ou emissão do documento no formato AAAA-MM-DD, ou null se não houver data identificável>", "rotacao": <0, 90, 180 ou 270 — quantos graus girar a imagem no sentido horário para o documento ficar na posição correta de leitura; use 0 se já estiver correta>}. Se o documento for um documento de identidade pessoal com foto (carteira de identidade tradicional, ou a nova Carteira de Identidade Nacional - CIN, ou qualquer RG estadual), classifique como "RG" mesmo que a palavra "RG" não apareça escrita no documento.`
             }
           ]
         }]
