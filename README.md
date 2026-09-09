@@ -1,5 +1,7 @@
 # Organizador de Documentos
 
+Aceita foto e PDF. Fotos viram página de PDF; PDFs enviados são unidos de verdade (não redesenhados). Dentro de cada tipo de documento, a IA tenta extrair a data de competência (ex: mês do holerite) e ordena os documentos por ela antes de juntar — quando não identifica data, mantém a ordem de envio.
+
 Duas telas:
 
 - **`/cadastro.html`** — o advogado se cadastra com nome e e-mail e recebe um link único.

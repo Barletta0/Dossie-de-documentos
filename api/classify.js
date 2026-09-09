@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { base64, mediaType, docTypes, token } = req.body;
+    const { base64, mediaType, docTypes, token, isDocument } = req.body;
 
     if (!token || !(await isValidToken(token))) {
       return res.status(401).json({ error: 'Invalid token' });
@@ -21,6 +21,9 @@ export default async function handler(req, res) {
     }
 
     const typeList = docTypes.join(', ');
+    const contentBlock = isDocument
+      ? { type: 'document', source: { type: 'base64', media_type: mediaType, data: base64 } }
+      : { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } };
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -31,14 +34,14 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-5',
-        max_tokens: 50,
+        max_tokens: 100,
         messages: [{
           role: 'user',
           content: [
-            { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+            contentBlock,
             {
               type: 'text',
-              text: `Classifique este documento em UMA destas categorias exatas: ${typeList}. Responda APENAS com o nome exato da categoria, nada mais.`
+              text: `Analise este documento e responda APENAS com um JSON, sem nenhum texto antes ou depois, no formato exato: {"tipo": "<uma destas categorias: ${typeList}>", "competencia": "<data de competência ou emissão do documento no formato AAAA-MM-DD, ou null se não houver data identificável>"}`
             }
           ]
         }]

@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -40,8 +40,8 @@
       <p class="step-title">Documentos</p>
       <div class="dropzone" id="dropzone">
         <p><strong>Coloque seus documentos aqui</strong></p>
-        <p style="margin-top:4px">Clique ou arraste as fotos — pode enviar várias de uma vez, sem precisar de ordem</p>
-        <input type="file" id="fileInput" accept="image/*" multiple>
+        <p style="margin-top:4px">Clique ou arraste fotos ou PDFs — pode enviar vários de uma vez, sem precisar de ordem</p>
+        <input type="file" id="fileInput" accept="image/*,application/pdf" multiple>
       </div>
       <div class="doc-list" id="docList"></div>
       <div id="errorArea"></div>
@@ -130,7 +130,7 @@ fileInput.addEventListener('change', e => handleFiles(e.target.files));
 
 function handleFiles(fileList) {
   errorArea.innerHTML = '';
-  const files = Array.from(fileList).filter(f => f.type.startsWith('image/'));
+  const files = Array.from(fileList).filter(f => f.type.startsWith('image/') || f.type === 'application/pdf');
   files.forEach(file => {
     const reader = new FileReader();
     reader.onload = () => {
@@ -142,8 +142,10 @@ function handleFiles(fileList) {
         dataUrl,
         base64,
         mediaType: file.type,
+        isPdf: file.type === 'application/pdf',
         status: 'pronto',
         type: null,
+        competencia: null,
       };
       docs.push(doc);
       renderDocList();
@@ -160,10 +162,17 @@ function renderDocList() {
     const row = document.createElement('div');
     row.className = 'doc-row';
 
-    const img = document.createElement('img');
-    img.className = 'doc-thumb';
-    img.src = doc.dataUrl;
-    row.appendChild(img);
+    if (doc.isPdf) {
+      const thumb = document.createElement('div');
+      thumb.className = 'doc-thumb doc-thumb-pdf';
+      thumb.textContent = 'PDF';
+      row.appendChild(thumb);
+    } else {
+      const img = document.createElement('img');
+      img.className = 'doc-thumb';
+      img.src = doc.dataUrl;
+      row.appendChild(img);
+    }
 
     const name = document.createElement('div');
     name.className = 'doc-name';
@@ -222,8 +231,9 @@ async function classifyAll() {
     doc.status = 'classificando';
     renderDocList();
     try {
-      const type = await classifyDocument(doc);
-      doc.type = type;
+      const result = await classifyDocument(doc);
+      doc.type = result.type;
+      doc.competencia = result.competencia;
     } catch (err) {
       console.error('Classification error', err);
       if (err.message === 'Link inválido') {
@@ -261,6 +271,7 @@ async function classifyDocument(doc) {
     body: JSON.stringify({
       base64: doc.base64,
       mediaType: doc.mediaType,
+      isDocument: doc.isPdf,
       docTypes: DOC_TYPES,
       token
     })
@@ -270,14 +281,41 @@ async function classifyDocument(doc) {
   if (!response.ok) throw new Error('API error ' + response.status);
   const data = await response.json();
   const raw = (data.raw || '').trim();
-  const match = DOC_TYPES.find(t => raw.toLowerCase().includes(t.toLowerCase()));
-  return match || 'Outros';
+
+  let type = null;
+  let competencia = null;
+  try {
+    const cleaned = raw.replace(/^```json\s*|```$/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+    type = DOC_TYPES.find(t => (parsed.tipo || '').toLowerCase().includes(t.toLowerCase()));
+    competencia = parsed.competencia && parsed.competencia !== 'null' ? parsed.competencia : null;
+  } catch (err) {
+    type = DOC_TYPES.find(t => raw.toLowerCase().includes(t.toLowerCase()));
+  }
+
+  return { type: type || 'Outros', competencia };
 }
 
 generateBtn.addEventListener('click', generateAndSend);
 
-function buildPdfsByType() {
-  const { jsPDF } = window.jspdf;
+function base64ToBytes(base64) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+function bytesToBase64(bytes) {
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+async function buildPdfsByType() {
+  const { PDFDocument } = PDFLib;
   const groups = {};
   docs.forEach(doc => {
     const t = doc.type || 'Outros';
@@ -285,53 +323,77 @@ function buildPdfsByType() {
     groups[t].push(doc);
   });
 
+  // dentro de cada tipo, ordena por data extraída (mais antiga primeiro);
+  // documentos sem data identificada ficam no fim, na ordem que foram enviados
+  Object.keys(groups).forEach(type => {
+    groups[type].sort((a, b) => {
+      if (a.competencia && b.competencia) return a.competencia.localeCompare(b.competencia);
+      if (a.competencia) return -1;
+      if (b.competencia) return 1;
+      return 0;
+    });
+  });
+
   const clientName = document.getElementById('clientName').value.trim() || 'Cliente';
   const safeClient = clientName.replace(/[^a-zA-Z0-9À-ÿ_ -]/g, '').trim().replace(/\s+/g, '_') || 'Cliente';
 
   const results = [];
-  Object.keys(groups).forEach(type => {
+  for (const type of Object.keys(groups)) {
     const groupDocs = groups[type];
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const pageW = pdf.internal.pageSize.getWidth();
-    const pageH = pdf.internal.pageSize.getHeight();
-    const margin = 10;
+    const mergedPdf = await PDFDocument.create();
+    let failedPages = 0;
 
-    groupDocs.forEach((doc, idx) => {
-      if (idx > 0) pdf.addPage();
-      const img = new Image();
-      img.src = doc.dataUrl;
-      const maxW = pageW - margin * 2;
-      const maxH = pageH - margin * 2;
-      let w = img.width, h = img.height;
-      const ratio = Math.min(maxW / w, maxH / h);
-      w = w * ratio;
-      h = h * ratio;
-      const x = (pageW - w) / 2;
-      const y = (pageH - h) / 2;
-      pdf.addImage(doc.dataUrl, undefined, x, y, w, h);
-    });
+    for (const doc of groupDocs) {
+      try {
+        if (doc.isPdf) {
+          const srcBytes = base64ToBytes(doc.base64);
+          const srcPdf = await PDFDocument.load(srcBytes);
+          const copiedPages = await mergedPdf.copyPages(srcPdf, srcPdf.getPageIndices());
+          copiedPages.forEach(p => mergedPdf.addPage(p));
+        } else {
+          const imgBytes = base64ToBytes(doc.base64);
+          let img;
+          try {
+            img = doc.mediaType.includes('png')
+              ? await mergedPdf.embedPng(imgBytes)
+              : await mergedPdf.embedJpg(imgBytes);
+          } catch (embedErr) {
+            // formato incomum (ex: webp) — tenta o outro embutidor antes de desistir
+            img = doc.mediaType.includes('png')
+              ? await mergedPdf.embedJpg(imgBytes)
+              : await mergedPdf.embedPng(imgBytes);
+          }
+          const page = mergedPdf.addPage([img.width, img.height]);
+          page.drawImage(img, { x: 0, y: 0, width: img.width, height: img.height });
+        }
+      } catch (err) {
+        console.error('Erro ao processar documento', doc.file.name, err);
+        failedPages++;
+      }
+    }
 
     const safeType = type.replace(/[\/\\]/g, '-').replace(/\s+/g, '_');
     const fileName = `${safeClient}_${safeType}.pdf`;
-    const dataUri = pdf.output('datauristring');
-    const base64 = dataUri.split(',')[1];
-    const blobUrl = pdf.output('bloburl');
+    const pdfBytes = await mergedPdf.save();
+    const base64 = bytesToBase64(pdfBytes);
+    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+    const blobUrl = URL.createObjectURL(blob);
 
-    results.push({ type, fileName, base64, blobUrl, pageCount: groupDocs.length });
-  });
+    results.push({ type, fileName, base64, blobUrl, pageCount: groupDocs.length - failedPages, failedPages });
+  }
 
   return { clientName, results };
 }
 
 function renderGroups(results) {
   groupsEl.innerHTML = '';
-  results.forEach(({ type, fileName, blobUrl, pageCount }) => {
+  results.forEach(({ type, fileName, blobUrl, pageCount, failedPages }) => {
     const row = document.createElement('div');
     row.className = 'group-row';
     row.innerHTML = `
       <div class="group-info">
         <strong>${type}</strong>
-        <span>${pageCount} página(s)</span>
+        <span>${pageCount} página(s)${failedPages ? ' — ' + failedPages + ' falharam' : ''}</span>
       </div>
     `;
     const btn = document.createElement('button');
@@ -355,7 +417,7 @@ async function generateAndSend() {
   generateBtn.disabled = true;
   sendNote.textContent = 'Montando os PDFs…';
 
-  const { clientName, results } = buildPdfsByType();
+  const { clientName, results } = await buildPdfsByType();
   renderGroups(results);
 
   sendNote.textContent = 'Enviando para o advogado…';
