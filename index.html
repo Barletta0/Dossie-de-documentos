@@ -45,15 +45,7 @@
       </div>
       <div class="doc-list" id="docList"></div>
       <div id="errorArea"></div>
-      <button class="primary" id="classifyBtn" disabled>Classificar documentos</button>
-      <p class="note" id="classifyNote"></p>
-    </div>
-
-    <div class="card" id="resultsCard" style="display:none">
-      <span class="step-num">Passo 3</span>
-      <p class="step-title">Conferir e enviar</p>
-      <p class="note">Confere se a IA acertou o tipo antes de enviar — o dropdown de cada linha acima corrige na hora.</p>
-      <button class="primary" id="generateBtn">Enviar documentos</button>
+      <button class="primary" id="generateBtn" disabled>Enviar documentos</button>
       <p class="note" id="sendNote"></p>
       <div class="groups" id="groups"></div>
     </div>
@@ -81,11 +73,9 @@ const kicker = document.getElementById('kicker');
 const dropzone = document.getElementById('dropzone');
 const fileInput = document.getElementById('fileInput');
 const docListEl = document.getElementById('docList');
-const classifyBtn = document.getElementById('classifyBtn');
-const classifyNote = document.getElementById('classifyNote');
 const errorArea = document.getElementById('errorArea');
-const resultsCard = document.getElementById('resultsCard');
 const generateBtn = document.getElementById('generateBtn');
+const sendNote = document.getElementById('sendNote');
 const groupsEl = document.getElementById('groups');
 
 init();
@@ -149,7 +139,7 @@ function handleFiles(fileList) {
       };
       docs.push(doc);
       renderDocList();
-      updateClassifyBtn();
+      updateSendBtn();
     };
     reader.readAsDataURL(file);
   });
@@ -207,7 +197,7 @@ function renderDocList() {
     removeBtn.addEventListener('click', () => {
       docs = docs.filter(d => d.id !== doc.id);
       renderDocList();
-      updateClassifyBtn();
+      updateSendBtn();
     });
     row.appendChild(removeBtn);
 
@@ -215,15 +205,13 @@ function renderDocList() {
   });
 }
 
-function updateClassifyBtn() {
-  classifyBtn.disabled = docs.length === 0;
+function updateSendBtn() {
+  generateBtn.disabled = docs.length === 0;
 }
 
-classifyBtn.addEventListener('click', classifyAll);
+generateBtn.addEventListener('click', sendAll);
 
 async function classifyAll() {
-  classifyBtn.disabled = true;
-  classifyNote.textContent = 'Classificando ' + docs.length + ' documento(s)…';
   errorArea.innerHTML = '';
   let failures = 0;
 
@@ -234,34 +222,23 @@ async function classifyAll() {
       const result = await classifyDocument(doc);
       doc.type = result.type;
       doc.competencia = result.competencia;
+      doc.rotation = result.rotation;
     } catch (err) {
       console.error('Classification error', err);
-      if (err.message === 'Link inválido') {
-        classifyNote.textContent = '';
-        errorArea.innerHTML = '<div class="error-banner">Esse link não é mais válido. Peça um novo ao seu advogado.</div>';
-        classifyBtn.disabled = false;
-        return;
-      }
-      if (err.message === 'Limite diário atingido') {
-        classifyNote.textContent = '';
-        errorArea.innerHTML = '<div class="error-banner">O limite de documentos por hoje foi atingido. Tenta novamente amanhã ou fala com seu advogado.</div>';
-        classifyBtn.disabled = false;
-        return;
+      if (err.message === 'Link inválido' || err.message === 'Limite diário atingido') {
+        throw err;
       }
       doc.type = 'Outros';
+      doc.rotation = 0;
       failures++;
     }
     doc.status = 'pronto';
     renderDocList();
   }
 
-  classifyNote.textContent = 'Classificação concluída. Confere os tipos antes de enviar.';
   if (failures > 0) {
-    errorArea.innerHTML = '<div class="error-banner">' + failures + ' documento(s) não puderam ser classificados automaticamente e foram marcados como "Outros" — ajuste manualmente no dropdown.</div>';
+    errorArea.innerHTML = '<div class="error-banner">' + failures + ' documento(s) não puderam ser classificados automaticamente e foram marcados como "Outros".</div>';
   }
-  classifyBtn.disabled = false;
-  resultsCard.style.display = 'block';
-  resultsCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 async function classifyDocument(doc) {
@@ -284,19 +261,20 @@ async function classifyDocument(doc) {
 
   let type = null;
   let competencia = null;
+  let rotation = 0;
   try {
     const cleaned = raw.replace(/^```json\s*|```$/g, '').trim();
     const parsed = JSON.parse(cleaned);
     type = DOC_TYPES.find(t => (parsed.tipo || '').toLowerCase().includes(t.toLowerCase()));
     competencia = parsed.competencia && parsed.competencia !== 'null' ? parsed.competencia : null;
+    const validRotations = [0, 90, 180, 270];
+    rotation = validRotations.includes(Number(parsed.rotacao)) ? Number(parsed.rotacao) : 0;
   } catch (err) {
     type = DOC_TYPES.find(t => raw.toLowerCase().includes(t.toLowerCase()));
   }
 
-  return { type: type || 'Outros', competencia };
+  return { type: type || 'Outros', competencia, rotation };
 }
-
-generateBtn.addEventListener('click', generateAndSend);
 
 function base64ToBytes(base64) {
   const binary = atob(base64);
@@ -315,7 +293,7 @@ function bytesToBase64(bytes) {
 }
 
 async function buildPdfsByType() {
-  const { PDFDocument } = PDFLib;
+  const { PDFDocument, degrees } = PDFLib;
   const groups = {};
   docs.forEach(doc => {
     const t = doc.type || 'Outros';
@@ -365,6 +343,10 @@ async function buildPdfsByType() {
           }
           const page = mergedPdf.addPage([img.width, img.height]);
           page.drawImage(img, { x: 0, y: 0, width: img.width, height: img.height });
+          // se a foto veio de ponta-cabeça ou de lado, gira a página pra ficar legível
+          if (doc.rotation) {
+            page.setRotation(degrees(doc.rotation));
+          }
         }
       } catch (err) {
         console.error('Erro ao processar documento', doc.file.name, err);
@@ -412,11 +394,23 @@ function renderGroups(results) {
   });
 }
 
-async function generateAndSend() {
-  const sendNote = document.getElementById('sendNote');
+async function sendAll() {
   generateBtn.disabled = true;
-  sendNote.textContent = 'Montando os PDFs…';
+  groupsEl.innerHTML = '';
+  errorArea.innerHTML = '';
+  sendNote.textContent = 'Classificando ' + docs.length + ' documento(s)…';
 
+  try {
+    await classifyAll();
+  } catch (err) {
+    sendNote.textContent = err.message === 'Link inválido'
+      ? 'Esse link não é mais válido. Peça um novo ao seu advogado.'
+      : 'O limite de documentos por hoje foi atingido. Tenta novamente amanhã ou fala com seu advogado.';
+    generateBtn.disabled = false;
+    return;
+  }
+
+  sendNote.textContent = 'Montando os PDFs…';
   const { clientName, results } = await buildPdfsByType();
   renderGroups(results);
 

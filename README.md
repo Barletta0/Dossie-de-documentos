@@ -1,6 +1,6 @@
 # Organizador de Documentos
 
-Aceita foto e PDF. Fotos viram página de PDF; PDFs enviados são unidos de verdade (não redesenhados). Dentro de cada tipo de documento, a IA tenta extrair a data de competência (ex: mês do holerite) e ordena os documentos por ela antes de juntar — quando não identifica data, mantém a ordem de envio.
+Fluxo em um clique só: o cliente sobe os documentos e aperta "Enviar" — a classificação, montagem do PDF e envio por e-mail rodam em sequência, sem passo intermediário. Aceita foto e PDF. Fotos viram página de PDF; PDFs enviados são unidos de verdade (não redesenhados). A IA também detecta se a foto está de ponta-cabeça ou de lado e gira a página automaticamente. Dentro de cada tipo de documento, tenta extrair a data de competência (ex: mês do holerite) e ordena os documentos por ela antes de juntar — quando não identifica data, mantém a ordem de envio.
 
 Duas telas:
 
