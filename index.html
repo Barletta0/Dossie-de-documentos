@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Organizador de Documentos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+<div class="wrap">
+
+  <div id="invalidState" class="state-message" style="display:none">
+    <h2>Link inválido</h2>
+    <p>Esse link não é válido ou expirou. Peça um novo link ao seu advogado.</p>
+  </div>
+
+  <div id="loadingState" class="state-message">
+    <p>Carregando…</p>
+  </div>
+
+  <div id="mainApp" style="display:none">
+    <header>
+      <div class="kicker" id="kicker">Envio de documentos</div>
+      <h1>Coloque seus documentos aqui</h1>
+      <p class="sub">Sobe as fotos dos seus documentos. A gente organiza por tipo e manda direto pro seu advogado.</p>
+    </header>
+
+    <div class="card">
+      <span class="step-num">Passo 1</span>
+      <p class="step-title">Seu nome completo</p>
+      <label class="field-label" for="clientName">Usado para nomear os arquivos</label>
+      <input type="text" id="clientName" placeholder="Ex: Maria Souza">
+    </div>
+
+    <div class="card">
+      <span class="step-num">Passo 2</span>
+      <p class="step-title">Documentos</p>
+      <div class="dropzone" id="dropzone">
+        <p><strong>Coloque seus documentos aqui</strong></p>
+        <p style="margin-top:4px">Clique ou arraste as fotos — pode enviar várias de uma vez, sem precisar de ordem</p>
+        <input type="file" id="fileInput" accept="image/*" multiple>
+      </div>
+      <div class="doc-list" id="docList"></div>
+      <div id="errorArea"></div>
+      <button class="primary" id="classifyBtn" disabled>Classificar documentos</button>
+      <p class="note" id="classifyNote"></p>
+    </div>
+
+    <div class="card" id="resultsCard" style="display:none">
+      <span class="step-num">Passo 3</span>
+      <p class="step-title">Conferir e enviar</p>
+      <p class="note">Confere se a IA acertou o tipo antes de enviar — o dropdown de cada linha acima corrige na hora.</p>
+      <button class="primary" id="generateBtn">Enviar documentos</button>
+      <p class="note" id="sendNote"></p>
+      <div class="groups" id="groups"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const DOC_TYPES = [
+  "RG", "CNH", "CPF", "Comprovante de Residência",
+  "Holerite/Contracheque", "Comprovante Bancário",
+  "CTPS", "TRCT", "Certidão", "Contrato", "Conversas", "Outros"
+];
+
+const token = new URLSearchParams(window.location.search).get('token');
+
+let docs = []; // {id, file, dataUrl, base64, mediaType, status, type}
+let idCounter = 0;
+
+const invalidState = document.getElementById('invalidState');
+const loadingState = document.getElementById('loadingState');
+const mainApp = document.getElementById('mainApp');
+const kicker = document.getElementById('kicker');
+
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const docListEl = document.getElementById('docList');
+const classifyBtn = document.getElementById('classifyBtn');
+const classifyNote = document.getElementById('classifyNote');
+const errorArea = document.getElementById('errorArea');
+const resultsCard = document.getElementById('resultsCard');
+const generateBtn = document.getElementById('generateBtn');
+const groupsEl = document.getElementById('groups');
+
+init();
+
+async function init() {
+  if (!token) {
+    showInvalid();
+    return;
+  }
+  try {
+    const response = await fetch('/api/lawyer-info?token=' + encodeURIComponent(token));
+    if (!response.ok) {
+      showInvalid();
+      return;
+    }
+    const data = await response.json();
+    if (data.name) {
+      kicker.textContent = 'Envio de documentos para ' + data.name;
+    }
+    loadingState.style.display = 'none';
+    mainApp.style.display = 'block';
+  } catch (err) {
+    console.error('init error', err);
+    showInvalid();
+  }
+}
+
+function showInvalid() {
+  loadingState.style.display = 'none';
+  invalidState.style.display = 'block';
+}
+
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('drag');
+  handleFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', e => handleFiles(e.target.files));
+
+function handleFiles(fileList) {
+  errorArea.innerHTML = '';
+  const files = Array.from(fileList).filter(f => f.type.startsWith('image/'));
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result;
+      const base64 = dataUrl.split(',')[1];
+      const doc = {
+        id: idCounter++,
+        file,
+        dataUrl,
+        base64,
+        mediaType: file.type,
+        status: 'pronto',
+        type: null,
+      };
+      docs.push(doc);
+      renderDocList();
+      updateClassifyBtn();
+    };
+    reader.readAsDataURL(file);
+  });
+  fileInput.value = '';
+}
+
+function renderDocList() {
+  docListEl.innerHTML = '';
+  docs.forEach(doc => {
+    const row = document.createElement('div');
+    row.className = 'doc-row';
+
+    const img = document.createElement('img');
+    img.className = 'doc-thumb';
+    img.src = doc.dataUrl;
+    row.appendChild(img);
+
+    const name = document.createElement('div');
+    name.className = 'doc-name';
+    name.textContent = doc.file.name;
+    row.appendChild(name);
+
+    if (doc.type) {
+      const select = document.createElement('select');
+      select.className = 'doc-type';
+      DOC_TYPES.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = t;
+        if (t === doc.type) opt.selected = true;
+        select.appendChild(opt);
+      });
+      select.addEventListener('change', e => {
+        doc.type = e.target.value;
+      });
+      row.appendChild(select);
+    } else {
+      const status = document.createElement('div');
+      status.className = 'doc-status';
+      status.textContent = doc.status === 'classificando' ? 'Classificando…' : 'Aguardando';
+      row.appendChild(status);
+    }
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'doc-remove';
+    removeBtn.textContent = '×';
+    removeBtn.title = 'Remover';
+    removeBtn.addEventListener('click', () => {
+      docs = docs.filter(d => d.id !== doc.id);
+      renderDocList();
+      updateClassifyBtn();
+    });
+    row.appendChild(removeBtn);
+
+    docListEl.appendChild(row);
+  });
+}
+
+function updateClassifyBtn() {
+  classifyBtn.disabled = docs.length === 0;
+}
+
+classifyBtn.addEventListener('click', classifyAll);
+
+async function classifyAll() {
+  classifyBtn.disabled = true;
+  classifyNote.textContent = 'Classificando ' + docs.length + ' documento(s)…';
+  errorArea.innerHTML = '';
+  let failures = 0;
+
+  for (const doc of docs) {
+    doc.status = 'classificando';
+    renderDocList();
+    try {
+      const type = await classifyDocument(doc);
+      doc.type = type;
+    } catch (err) {
+      console.error('Classification error', err);
+      if (err.message === 'Link inválido') {
+        classifyNote.textContent = '';
+        errorArea.innerHTML = '<div class="error-banner">Esse link não é mais válido. Peça um novo ao seu advogado.</div>';
+        classifyBtn.disabled = false;
+        return;
+      }
+      if (err.message === 'Limite diário atingido') {
+        classifyNote.textContent = '';
+        errorArea.innerHTML = '<div class="error-banner">O limite de documentos por hoje foi atingido. Tenta novamente amanhã ou fala com seu advogado.</div>';
+        classifyBtn.disabled = false;
+        return;
+      }
+      doc.type = 'Outros';
+      failures++;
+    }
+    doc.status = 'pronto';
+    renderDocList();
+  }
+
+  classifyNote.textContent = 'Classificação concluída. Confere os tipos antes de enviar.';
+  if (failures > 0) {
+    errorArea.innerHTML = '<div class="error-banner">' + failures + ' documento(s) não puderam ser classificados automaticamente e foram marcados como "Outros" — ajuste manualmente no dropdown.</div>';
+  }
+  classifyBtn.disabled = false;
+  resultsCard.style.display = 'block';
+  resultsCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function classifyDocument(doc) {
+  const response = await fetch("/api/classify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      base64: doc.base64,
+      mediaType: doc.mediaType,
+      docTypes: DOC_TYPES,
+      token
+    })
+  });
+  if (response.status === 401) throw new Error('Link inválido');
+  if (response.status === 429) throw new Error('Limite diário atingido');
+  if (!response.ok) throw new Error('API error ' + response.status);
+  const data = await response.json();
+  const raw = (data.raw || '').trim();
+  const match = DOC_TYPES.find(t => raw.toLowerCase().includes(t.toLowerCase()));
+  return match || 'Outros';
+}
+
+generateBtn.addEventListener('click', generateAndSend);
+
+function buildPdfsByType() {
+  const { jsPDF } = window.jspdf;
+  const groups = {};
+  docs.forEach(doc => {
+    const t = doc.type || 'Outros';
+    if (!groups[t]) groups[t] = [];
+    groups[t].push(doc);
+  });
+
+  const clientName = document.getElementById('clientName').value.trim() || 'Cliente';
+  const safeClient = clientName.replace(/[^a-zA-Z0-9À-ÿ_ -]/g, '').trim().replace(/\s+/g, '_') || 'Cliente';
+
+  const results = [];
+  Object.keys(groups).forEach(type => {
+    const groupDocs = groups[type];
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const margin = 10;
+
+    groupDocs.forEach((doc, idx) => {
+      if (idx > 0) pdf.addPage();
+      const img = new Image();
+      img.src = doc.dataUrl;
+      const maxW = pageW - margin * 2;
+      const maxH = pageH - margin * 2;
+      let w = img.width, h = img.height;
+      const ratio = Math.min(maxW / w, maxH / h);
+      w = w * ratio;
+      h = h * ratio;
+      const x = (pageW - w) / 2;
+      const y = (pageH - h) / 2;
+      pdf.addImage(doc.dataUrl, undefined, x, y, w, h);
+    });
+
+    const safeType = type.replace(/[\/\\]/g, '-').replace(/\s+/g, '_');
+    const fileName = `${safeClient}_${safeType}.pdf`;
+    const dataUri = pdf.output('datauristring');
+    const base64 = dataUri.split(',')[1];
+    const blobUrl = pdf.output('bloburl');
+
+    results.push({ type, fileName, base64, blobUrl, pageCount: groupDocs.length });
+  });
+
+  return { clientName, results };
+}
+
+function renderGroups(results) {
+  groupsEl.innerHTML = '';
+  results.forEach(({ type, fileName, blobUrl, pageCount }) => {
+    const row = document.createElement('div');
+    row.className = 'group-row';
+    row.innerHTML = `
+      <div class="group-info">
+        <strong>${type}</strong>
+        <span>${pageCount} página(s)</span>
+      </div>
+    `;
+    const btn = document.createElement('button');
+    btn.className = 'group-download';
+    btn.textContent = 'Baixar PDF';
+    btn.addEventListener('click', () => {
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    });
+    row.appendChild(btn);
+    groupsEl.appendChild(row);
+  });
+}
+
+async function generateAndSend() {
+  const sendNote = document.getElementById('sendNote');
+  generateBtn.disabled = true;
+  sendNote.textContent = 'Montando os PDFs…';
+
+  const { clientName, results } = buildPdfsByType();
+  renderGroups(results);
+
+  sendNote.textContent = 'Enviando para o advogado…';
+  try {
+    const response = await fetch('/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clientName,
+        files: results.map(r => ({ filename: r.fileName, base64: r.base64 })),
+        token
+      })
+    });
+    if (response.status === 401) throw new Error('Link inválido');
+    if (!response.ok) throw new Error('Falha no envio (' + response.status + ')');
+    sendNote.textContent = 'Documentos enviados. Também dá pra baixar cada PDF abaixo, se precisar.';
+  } catch (err) {
+    console.error('Send error', err);
+    sendNote.textContent = err.message === 'Link inválido'
+      ? 'Esse link não é mais válido. Peça um novo ao seu advogado.'
+      : 'Os PDFs foram gerados, mas o envio automático falhou. Baixa os arquivos abaixo e manda manualmente.';
+  }
+  generateBtn.disabled = false;
+}
+</script>
+</body>
+</html>

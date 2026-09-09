@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cadastro — Organizador de Documentos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="kicker">Organizador de Documentos</div>
+    <h1>Gere seu link de envio</h1>
+    <p class="sub">Cadastre seu nome e e-mail. Você recebe um link único — manda esse link pros seus clientes, e cada documento que eles subirem chega organizado direto na sua caixa de entrada.</p>
+  </header>
+
+  <div class="card" id="formCard">
+    <label class="field-label" for="lawyerName">Seu nome completo</label>
+    <input type="text" id="lawyerName" placeholder="Ex: Ana Barletta">
+    <label class="field-label" for="lawyerEmail" style="margin-top:14px">Seu e-mail</label>
+    <input type="email" id="lawyerEmail" placeholder="voce@email.com">
+    <div id="errorArea"></div>
+    <button class="primary" id="registerBtn">Gerar meu link</button>
+  </div>
+
+  <div class="card" id="resultCard" style="display:none">
+    <p class="step-title">Pronto, esse é o seu link</p>
+    <p class="note">Manda esse link pros seus clientes — pode ser o mesmo link pra todos, cada um vai colocar o próprio nome ao enviar os documentos.</p>
+    <div class="link-box">
+      <code id="linkText"></code>
+      <button class="copy-btn" id="copyBtn">Copiar</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const registerBtn = document.getElementById('registerBtn');
+const formCard = document.getElementById('formCard');
+const resultCard = document.getElementById('resultCard');
+const errorArea = document.getElementById('errorArea');
+const linkText = document.getElementById('linkText');
+const copyBtn = document.getElementById('copyBtn');
+
+registerBtn.addEventListener('click', register);
+
+async function register() {
+  const name = document.getElementById('lawyerName').value.trim();
+  const email = document.getElementById('lawyerEmail').value.trim();
+  errorArea.innerHTML = '';
+
+  if (!name || !email) {
+    errorArea.innerHTML = '<div class="error-banner">Preenche nome e e-mail antes de gerar o link.</div>';
+    return;
+  }
+
+  registerBtn.disabled = true;
+  registerBtn.textContent = 'Gerando…';
+
+  try {
+    const response = await fetch('/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email })
+    });
+    if (!response.ok) throw new Error('Falha no cadastro');
+    const data = await response.json();
+
+    linkText.textContent = data.link;
+    formCard.style.display = 'none';
+    resultCard.style.display = 'block';
+  } catch (err) {
+    console.error('register error', err);
+    errorArea.innerHTML = '<div class="error-banner">Não deu pra gerar o link agora. Tenta de novo em instantes.</div>';
+    registerBtn.disabled = false;
+    registerBtn.textContent = 'Gerar meu link';
+  }
+}
+
+copyBtn.addEventListener('click', () => {
+  navigator.clipboard.writeText(linkText.textContent).then(() => {
+    copyBtn.textContent = 'Copiado!';
+    setTimeout(() => { copyBtn.textContent = 'Copiar'; }, 1800);
+  });
+});
+</script>
+</body>
+</html>
