@@ -2,6 +2,8 @@
 
 Cliente sobe fotos ou PDFs → IA classifica, reorienta foto de lado/de ponta-cabeça, ordena por página e data → PDFs organizados chegam por e-mail pro advogado.
 
+Cada foto é redimensionada (máximo 1800px no lado maior) e comprimida antes de virar página de PDF — mantém o texto legível, mas evita anexo de e-mail gigante em lotes grandes (testado com 236 páginas num único envio). Antes de tentar enviar, o site calcula o tamanho total e avisa se passar de ~18MB (perto do teto comum de 25MB dos provedores de e-mail), em vez de deixar o envio falhar sem explicação — nesse caso, oferece baixar os PDFs pra mandar manualmente ou em mais de um e-mail. Documentos com conteúdo idêntico ao de outro já enviado na mesma leva (mesma foto selecionada duas vezes, por exemplo) são detectados e ignorados automaticamente, com aviso de quantos foram pulados.
+
 ## As telas
 
 - **`/` (index.html)** — sem token na URL: mostra a landing page (venda). Com token válido: mostra a tela de upload do cliente.

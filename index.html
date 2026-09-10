@@ -573,12 +573,32 @@ function handleFiles(fileList) {
   fileInput.value = '';
 }
 
+let duplicatesSkipped = 0;
+
+function hashContent(str) {
+  // hash simples e rápido, só pra detectar conteúdo idêntico — não é criptográfico
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash * 31 + str.charCodeAt(i)) | 0;
+  }
+  return hash;
+}
+
 function addDoc(file, dataUrl, base64, mediaType, isPdf) {
+  const contentHash = hashContent(base64);
+  const isDuplicate = docs.some(d => d.contentHash === contentHash && d.base64 === base64);
+  if (isDuplicate) {
+    duplicatesSkipped++;
+    errorArea.innerHTML = '<div class="error-banner">' + duplicatesSkipped + ' documento(s) duplicado(s) (mesmo conteúdo de outro já enviado) foram ignorados automaticamente.</div>';
+    return;
+  }
+
   const doc = {
     id: idCounter++,
     file,
     dataUrl,
     base64,
+    contentHash,
     mediaType,
     isPdf,
     status: 'pronto',
@@ -595,18 +615,25 @@ function addDoc(file, dataUrl, base64, mediaType, isPdf) {
 // orientação correta (EXIF) direto nos pixels — assim a foto que a IA
 // analisa e a que vai pro PDF final são sempre a mesma, já em pé.
 function normalizeImageOrientation(file) {
+  const MAX_DIMENSION = 1800; // suficiente pra ler texto de documento, bem menor que foto de celular em resolução total
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
       const img = new Image();
       img.onload = () => {
+        let { naturalWidth: w, naturalHeight: h } = img;
+        if (w > MAX_DIMENSION || h > MAX_DIMENSION) {
+          const ratio = Math.min(MAX_DIMENSION / w, MAX_DIMENSION / h);
+          w = Math.round(w * ratio);
+          h = Math.round(h * ratio);
+        }
         const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
+        canvas.width = w;
+        canvas.height = h;
         const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
+        ctx.drawImage(img, 0, 0, w, h);
         const outType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
-        const dataUrl = outType === 'image/jpeg' ? canvas.toDataURL(outType, 0.92) : canvas.toDataURL(outType);
+        const dataUrl = outType === 'image/jpeg' ? canvas.toDataURL(outType, 0.8) : canvas.toDataURL(outType);
         resolve({ dataUrl, base64: dataUrl.split(',')[1], mediaType: outType });
       };
       img.onerror = () => reject(new Error('Falha ao carregar imagem'));
@@ -910,6 +937,15 @@ async function sendAll() {
   sendNote.textContent = 'Montando os PDFs…';
   const { clientName, results } = await buildPdfsByType();
   renderGroups(results);
+
+  const MAX_EMAIL_BYTES = 18 * 1024 * 1024; // margem segura abaixo do teto comum de 25MB dos provedores de e-mail
+  const totalBytes = results.reduce((sum, r) => sum + Math.ceil(r.base64.length * 0.75), 0);
+  if (totalBytes > MAX_EMAIL_BYTES) {
+    const totalMB = (totalBytes / (1024 * 1024)).toFixed(1);
+    sendNote.textContent = `Os PDFs ficaram grandes demais pra e-mail (~${totalMB}MB, o limite é por volta de 18-25MB). Baixa cada um abaixo e manda separado, ou em mais de um e-mail.`;
+    generateBtn.disabled = false;
+    return;
+  }
 
   sendNote.textContent = 'Enviando para o advogado…';
   try {

@@ -7,7 +7,10 @@ export default async function handler(req, res) {
     const { clientName, files, token } = req.body;
 
     if (!token) return res.status(401).json({ error: 'Invalid token' });
-    const lawyer = await getLawyerByToken(token);
+    const resolved = await resolveToken(token);
+    if (!resolved) return res.status(401).json({ error: 'Invalid token' });
+
+    const lawyer = await getLawyerByToken(resolved.lawyerToken);
     if (!lawyer) return res.status(401).json({ error: 'Invalid token' });
 
     if (!clientName || !Array.isArray(files) || files.length === 0) {
@@ -40,6 +43,10 @@ export default async function handler(req, res) {
       return res.status(response.status).json({ error: 'Email send error' });
     }
 
+    if (resolved.clientLinkId) {
+      await markClientLinkUsed(resolved.clientLinkId);
+    }
+
     return res.status(200).json({ success: true });
   } catch (err) {
     console.error('send-email.js error:', err);
@@ -58,4 +65,41 @@ async function getLawyerByToken(token) {
   if (!response.ok) return null;
   const rows = await response.json();
   return rows.length ? rows[0] : null;
+}
+
+async function supabaseGet(path) {
+  const response = await fetch(`${process.env.SUPABASE_URL}/rest/v1/${path}`, {
+    headers: {
+      apikey: process.env.SUPABASE_SERVICE_KEY,
+      Authorization: `Bearer ${process.env.SUPABASE_SERVICE_KEY}`
+    }
+  });
+  if (!response.ok) return [];
+  return response.json();
+}
+
+async function resolveToken(token) {
+  const lawyerRows = await supabaseGet(`lawyers?token=eq.${encodeURIComponent(token)}&select=token`);
+  if (lawyerRows.length) return { lawyerToken: lawyerRows[0].token, clientLinkId: null };
+
+  const clientRows = await supabaseGet(`client_links?token=eq.${encodeURIComponent(token)}&used=eq.false&select=id,lawyer_token`);
+  if (!clientRows.length) return null;
+  return { lawyerToken: clientRows[0].lawyer_token, clientLinkId: clientRows[0].id };
+}
+
+async function markClientLinkUsed(clientLinkId) {
+  try {
+    await fetch(`${process.env.SUPABASE_URL}/rest/v1/client_links?id=eq.${encodeURIComponent(clientLinkId)}`, {
+      method: 'PATCH',
+      headers: {
+        apikey: process.env.SUPABASE_SERVICE_KEY,
+        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal'
+      },
+      body: JSON.stringify({ used: true })
+    });
+  } catch (err) {
+    console.error('markClientLinkUsed error:', err);
+  }
 }
