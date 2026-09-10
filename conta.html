@@ -54,9 +54,9 @@
     </div>
     <div class="card">
       <p class="step-title">Assinar — R$ 39,90/mês</p>
-      <p class="note">60 documentos por dia, sem limite de clientes.</p>
+      <p class="note">Documentos ilimitados, sem limite de clientes.</p>
       <div class="link-box">
-        <code>chave-pix-a-definir@exemplo.com</code>
+        <code>(12) 99130-8362 — Pablo / Nubank</code>
         <button class="copy-btn" id="copyPixBtn">Copiar</button>
       </div>
       <p class="note">Depois de pagar, manda o comprovante pro WhatsApp — a liberação é manual até novembro.</p>
@@ -100,7 +100,7 @@ async function init() {
         window.location.href = '/?token=' + encodeURIComponent(token) + '&preview=1';
       });
       document.getElementById('copyPixBtn').addEventListener('click', (e) => {
-        navigator.clipboard.writeText('chave-pix-a-definir@exemplo.com').then(() => {
+        navigator.clipboard.writeText('(12) 99130-8362 — Pablo / Nubank').then(() => {
           e.target.textContent = 'Copiado!';
           setTimeout(() => { e.target.textContent = 'Copiar'; }, 1800);
         });
