@@ -99,7 +99,7 @@ async function register() {
     const data = await response.json();
 
     // já leva direto pra tela de teste, usando o próprio token do advogado
-    window.location.href = '/?token=' + encodeURIComponent(data.token);
+    window.location.href = '/?token=' + encodeURIComponent(data.token) + '&preview=1';
   } catch (err) {
     console.error('register error', err);
     errorArea.innerHTML = '<div class="error-banner">Não deu pra criar sua conta agora. Tenta de novo em instantes.</div>';

@@ -97,7 +97,7 @@ async function init() {
       document.getElementById('trialGreeting').textContent = 'Olá, ' + (data.name || '');
       trialState.style.display = 'block';
       document.getElementById('testBtn').addEventListener('click', () => {
-        window.location.href = '/?token=' + encodeURIComponent(token);
+        window.location.href = '/?token=' + encodeURIComponent(token) + '&preview=1';
       });
       document.getElementById('copyPixBtn').addEventListener('click', (e) => {
         navigator.clipboard.writeText('chave-pix-a-definir@exemplo.com').then(() => {

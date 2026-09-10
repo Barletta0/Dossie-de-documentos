@@ -438,6 +438,10 @@
       <p class="sub">Sobe as fotos dos seus documentos. A gente organiza por tipo e manda direto pra quem te enviou o link.</p>
     </header>
 
+    <div class="card" id="previewNote" style="display:none; background:var(--blue-soft); border-color:var(--blue);">
+      <p class="note" style="color:var(--navy); margin:0;"><strong>Isso é exatamente o que seu cliente vê.</strong> Essa é a mesma tela que abre quando você manda seu link pra alguém — teste aqui com seus próprios documentos antes de mandar de verdade.</p>
+    </div>
+
     <div class="card">
       <span class="step-num">Passo 1</span>
       <p class="step-title">Seu nome completo</p>
@@ -493,6 +497,7 @@ const DOC_TYPES = [
 ];
 
 const token = new URLSearchParams(window.location.search).get('token');
+const isPreview = new URLSearchParams(window.location.search).get('preview') === '1';
 
 function escapeHtml(str) {
   const div = document.createElement('div');
@@ -544,6 +549,9 @@ async function init() {
     lawyerEmail = data.email || null;
     loadingState.style.display = 'none';
     mainApp.style.display = 'block';
+    if (isPreview) {
+      document.getElementById('previewNote').style.display = 'block';
+    }
   } catch (err) {
     console.error('init error', err);
     showInvalid();
