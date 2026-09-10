@@ -22,8 +22,12 @@
     <input type="text" id="lawyerName" placeholder="Ex: Ana Barletta">
     <label class="field-label" for="lawyerEmail" style="margin-top:14px">Seu e-mail</label>
     <input type="email" id="lawyerEmail" placeholder="voce@email.com">
+    <label class="field-label" for="lawyerEmailConfirm" style="margin-top:14px">Confirme seu e-mail</label>
+    <input type="email" id="lawyerEmailConfirm" placeholder="voce@email.com" autocomplete="off">
     <label class="field-label" for="lawyerPassword" style="margin-top:14px">Crie uma senha</label>
     <input type="password" id="lawyerPassword" placeholder="Mínimo 6 caracteres">
+    <label class="field-label" for="lawyerPasswordConfirm" style="margin-top:14px">Confirme a senha</label>
+    <input type="password" id="lawyerPasswordConfirm" placeholder="Repita a senha">
     <div id="errorArea"></div>
     <button class="primary" id="registerBtn">Criar conta e testar grátis</button>
     <p class="note">Já tem conta? <a href="/login.html">Entrar</a></p>
@@ -40,15 +44,25 @@ registerBtn.addEventListener('click', register);
 async function register() {
   const name = document.getElementById('lawyerName').value.trim();
   const email = document.getElementById('lawyerEmail').value.trim();
+  const emailConfirm = document.getElementById('lawyerEmailConfirm').value.trim();
   const password = document.getElementById('lawyerPassword').value;
+  const passwordConfirm = document.getElementById('lawyerPasswordConfirm').value;
   errorArea.innerHTML = '';
 
-  if (!name || !email || !password) {
-    errorArea.innerHTML = '<div class="error-banner">Preenche nome, e-mail e senha antes de continuar.</div>';
+  if (!name || !email || !emailConfirm || !password || !passwordConfirm) {
+    errorArea.innerHTML = '<div class="error-banner">Preenche todos os campos antes de continuar.</div>';
+    return;
+  }
+  if (email.toLowerCase() !== emailConfirm.toLowerCase()) {
+    errorArea.innerHTML = '<div class="error-banner">Os dois e-mails digitados são diferentes. Confere e tenta de novo.</div>';
     return;
   }
   if (password.length < 6) {
     errorArea.innerHTML = '<div class="error-banner">A senha precisa ter pelo menos 6 caracteres.</div>';
+    return;
+  }
+  if (password !== passwordConfirm) {
+    errorArea.innerHTML = '<div class="error-banner">As duas senhas digitadas são diferentes. Confere e tenta de novo.</div>';
     return;
   }
 
