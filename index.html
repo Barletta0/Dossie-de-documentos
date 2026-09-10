@@ -503,6 +503,8 @@ const generateBtn = document.getElementById('generateBtn');
 const sendNote = document.getElementById('sendNote');
 const groupsEl = document.getElementById('groups');
 
+let lawyerEmail = null;
+
 init();
 
 async function init() {
@@ -526,6 +528,7 @@ async function init() {
     if (data.name) {
       kicker.textContent = 'Envio de documentos para ' + data.name;
     }
+    lawyerEmail = data.email || null;
     loadingState.style.display = 'none';
     mainApp.style.display = 'block';
   } catch (err) {
@@ -722,6 +725,7 @@ async function classifyAll() {
       doc.competencia = result.competencia;
       doc.rotation = result.rotation;
       doc.pageNum = result.pageNum;
+      doc.side = result.side;
     } catch (err) {
       console.error('Classification error', err);
       if (err.message === 'Link inválido' || err.message === 'Limite diário atingido' || err.message === 'Teste grátis esgotado') {
@@ -763,6 +767,7 @@ async function classifyDocument(doc) {
   let competencia = null;
   let rotation = 0;
   let pageNum = null;
+  let side = null;
   try {
     const cleaned = raw.replace(/^```json\s*|```$/g, '').trim();
     const parsed = JSON.parse(cleaned);
@@ -781,11 +786,13 @@ async function classifyDocument(doc) {
 
     const parsedPage = parseInt(parsed.pagina_atual, 10);
     pageNum = Number.isFinite(parsedPage) ? parsedPage : null;
+
+    side = parsed.lado === 'frente' || parsed.lado === 'verso' ? parsed.lado : null;
   } catch (err) {
     type = DOC_TYPES.find(t => raw.toLowerCase().includes(t.toLowerCase()));
   }
 
-  return { type: type || 'Outros', competencia, rotation, pageNum };
+  return { type: type || 'Outros', competencia, rotation, pageNum, side };
 }
 
 function base64ToBytes(base64) {
@@ -814,13 +821,15 @@ async function buildPdfsByType() {
   });
 
   // dentro de cada tipo: primeiro por número de página (quando identificado —
-  // resolve o caso de mandar a página 2 antes da página 1), depois por data de
+  // resolve o caso de mandar a página 2 antes da página 1), depois frente antes
+  // de verso (documento de identidade com duas faces), depois por data de
   // competência, e por último mantém a ordem de envio
   Object.keys(groups).forEach(type => {
     groups[type].sort((a, b) => {
       if (a.pageNum != null && b.pageNum != null) return a.pageNum - b.pageNum;
       if (a.pageNum != null) return -1;
       if (b.pageNum != null) return 1;
+      if (a.side && b.side && a.side !== b.side) return a.side === 'frente' ? -1 : 1;
       if (a.competencia && b.competencia) return a.competencia.localeCompare(b.competencia);
       if (a.competencia) return -1;
       if (b.competencia) return 1;
@@ -940,9 +949,10 @@ async function sendAll() {
 
   const MAX_EMAIL_BYTES = 18 * 1024 * 1024; // margem segura abaixo do teto comum de 25MB dos provedores de e-mail
   const totalBytes = results.reduce((sum, r) => sum + Math.ceil(r.base64.length * 0.75), 0);
+  const filesPayload = results.map(r => ({ filename: r.fileName, base64: r.base64 }));
+
   if (totalBytes > MAX_EMAIL_BYTES) {
-    const totalMB = (totalBytes / (1024 * 1024)).toFixed(1);
-    sendNote.textContent = `Os PDFs ficaram grandes demais pra e-mail (~${totalMB}MB, o limite é por volta de 18-25MB). Baixa cada um abaixo e manda separado, ou em mais de um e-mail.`;
+    await sendViaStorageLink(clientName, filesPayload);
     generateBtn.disabled = false;
     return;
   }
@@ -952,22 +962,39 @@ async function sendAll() {
     const response = await fetch('/api/send-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        clientName,
-        files: results.map(r => ({ filename: r.fileName, base64: r.base64 })),
-        token
-      })
+      body: JSON.stringify({ clientName, files: filesPayload, token })
     });
     if (response.status === 401) throw new Error('Link inválido');
     if (!response.ok) throw new Error('Falha no envio (' + response.status + ')');
     sendNote.textContent = 'Documentos enviados. Também dá pra baixar cada PDF abaixo, se precisar.';
   } catch (err) {
     console.error('Send error', err);
-    sendNote.textContent = err.message === 'Link inválido'
-      ? 'Esse link não é mais válido. Peça um novo ao seu advogado.'
-      : 'Os PDFs foram gerados, mas o envio automático falhou. Baixa os arquivos abaixo e manda manualmente.';
+    if (err.message === 'Link inválido') {
+      sendNote.textContent = 'Esse link não é mais válido. Peça um novo ao seu advogado.';
+    } else {
+      // tenta o caminho de reserva (link de download) antes de pedir pro cliente fazer algo manual
+      sendNote.textContent = 'O envio direto falhou, tentando um jeito alternativo…';
+      await sendViaStorageLink(clientName, filesPayload);
+    }
   }
   generateBtn.disabled = false;
+}
+
+async function sendViaStorageLink(clientName, filesPayload) {
+  sendNote.textContent = 'Enviando um link de download pro seu advogado…';
+  try {
+    const response = await fetch('/api/upload-large', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientName, files: filesPayload, token })
+    });
+    if (!response.ok) throw new Error('upload-large failed');
+    sendNote.textContent = 'Pronto! O arquivo era grande demais pra anexar direto, então mandamos um link de download pro seu advogado por e-mail — não precisa fazer mais nada.';
+  } catch (err) {
+    console.error('sendViaStorageLink error', err);
+    const emailNote = lawyerEmail ? ` (${lawyerEmail})` : '';
+    sendNote.textContent = `Não deu pra enviar automaticamente de nenhum jeito. Baixa os arquivos abaixo e manda direto pro seu advogado${emailNote}.`;
+  }
 }
 </script>
 </body>

@@ -2,7 +2,7 @@
 
 Cliente sobe fotos ou PDFs → IA classifica, reorienta foto de lado/de ponta-cabeça, ordena por página e data → PDFs organizados chegam por e-mail pro advogado.
 
-Cada foto é redimensionada (máximo 1800px no lado maior) e comprimida antes de virar página de PDF — mantém o texto legível, mas evita anexo de e-mail gigante em lotes grandes (testado com 236 páginas num único envio). Antes de tentar enviar, o site calcula o tamanho total e avisa se passar de ~18MB (perto do teto comum de 25MB dos provedores de e-mail), em vez de deixar o envio falhar sem explicação — nesse caso, oferece baixar os PDFs pra mandar manualmente ou em mais de um e-mail. Documentos com conteúdo idêntico ao de outro já enviado na mesma leva (mesma foto selecionada duas vezes, por exemplo) são detectados e ignorados automaticamente, com aviso de quantos foram pulados.
+Cada foto é redimensionada (máximo 1800px no lado maior) e comprimida antes de virar página de PDF — mantém o texto legível, mas evita anexo de e-mail gigante em lotes grandes. Se mesmo assim o total passar de ~18MB (perto do teto comum de 25MB dos provedores de e-mail), o site sobe os PDFs pra um armazenamento temporário e manda o advogado um link de download por e-mail (válido por 3 dias) — sem exigir nenhuma ação manual do cliente. Documentos com conteúdo idêntico ao de outro já enviado na mesma leva (mesma foto selecionada duas vezes, por exemplo) são detectados e ignorados automaticamente, com aviso de quantos foram pulados.
 
 ## As telas
 
@@ -83,6 +83,14 @@ create table client_links (
 ```
 
 Depois, em "Project Settings" → "API", copie a **Project URL** (`SUPABASE_URL`) e a chave **service_role** (`SUPABASE_SERVICE_KEY` — nunca a `anon`).
+
+**Crie também um bucket de armazenamento**, usado como reserva quando um lote de documentos é grande demais pra anexar no e-mail:
+- Vá em "Storage" no menu lateral → "New bucket".
+- Nome: `documents`.
+- Deixe **desmarcado** "Public bucket" (o acesso é só via link assinado, temporário, gerado pelo código — não é público).
+- Crie.
+
+Sem esse bucket, o site continua funcionando normalmente para lotes de tamanho comum — ele só entra em ação como plano B quando o total passa de ~18MB.
 
 ### 2. Suba o projeto pro GitHub
 
