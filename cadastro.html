@@ -29,6 +29,10 @@
     <input type="password" id="lawyerPassword" placeholder="Mínimo 6 caracteres">
     <label class="field-label" for="lawyerPasswordConfirm" style="margin-top:14px">Confirme a senha</label>
     <input type="password" id="lawyerPasswordConfirm" placeholder="Repita a senha">
+    <label style="display:flex; align-items:flex-start; gap:8px; margin-top:16px; font-size:13px; color:var(--ink-soft); cursor:pointer;">
+      <input type="checkbox" id="acceptTerms" style="margin-top:3px;">
+      <span>Li e aceito os <a href="/termos.html" target="_blank">Termos de Uso e a Política de Privacidade</a>, e sou responsável por obter o consentimento dos meus próprios clientes antes de solicitar documentos por este meio.</span>
+    </label>
     <div id="errorArea"></div>
     <button class="primary" id="registerBtn">Criar conta e testar grátis</button>
     <p class="note">Já tem conta? <a href="/login.html">Entrar</a></p>
@@ -48,10 +52,15 @@ async function register() {
   const emailConfirm = document.getElementById('lawyerEmailConfirm').value.trim();
   const password = document.getElementById('lawyerPassword').value;
   const passwordConfirm = document.getElementById('lawyerPasswordConfirm').value;
+  const acceptedTerms = document.getElementById('acceptTerms').checked;
   errorArea.innerHTML = '';
 
   if (!name || !email || !emailConfirm || !password || !passwordConfirm) {
     errorArea.innerHTML = '<div class="error-banner">Preenche todos os campos antes de continuar.</div>';
+    return;
+  }
+  if (!acceptedTerms) {
+    errorArea.innerHTML = '<div class="error-banner">Precisa aceitar os Termos de Uso e a Política de Privacidade pra continuar.</div>';
     return;
   }
   if (email.toLowerCase() !== emailConfirm.toLowerCase()) {
@@ -74,7 +83,7 @@ async function register() {
     const response = await fetch('/api/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password })
+      body: JSON.stringify({ name, email, password, acceptedTerms })
     });
     if (response.status === 409) {
       errorArea.innerHTML = '<div class="error-banner">Esse e-mail já tem conta. <a href="/login.html">Faz login</a> em vez disso.</div>';
