@@ -715,6 +715,7 @@ generateBtn.addEventListener('click', sendAll);
 async function classifyAll() {
   errorArea.innerHTML = '';
   let failures = 0;
+  let stoppedReason = null;
 
   for (const doc of docs) {
     doc.status = 'classificando';
@@ -726,22 +727,34 @@ async function classifyAll() {
       doc.rotation = result.rotation;
       doc.pageNum = result.pageNum;
       doc.side = result.side;
+      doc.status = 'pronto';
+      renderDocList();
     } catch (err) {
       console.error('Classification error', err);
-      if (err.message === 'Link inválido' || err.message === 'Limite diário atingido' || err.message === 'Teste grátis esgotado') {
-        throw err;
+      if (err.message === 'Link inválido') {
+        throw err; // sem token válido não tem pra onde mandar nada, aborta de vez
+      }
+      if (err.message === 'Limite diário atingido' || err.message === 'Teste grátis esgotado') {
+        // para de classificar mais, mas mantém o que já foi classificado —
+        // esses ainda vão ser enviados, não descarta o trabalho já feito
+        doc.status = 'pronto';
+        renderDocList();
+        stoppedReason = err.message;
+        break;
       }
       doc.type = 'Outros';
       doc.rotation = 0;
+      doc.status = 'pronto';
+      renderDocList();
       failures++;
     }
-    doc.status = 'pronto';
-    renderDocList();
   }
 
   if (failures > 0) {
     errorArea.innerHTML = '<div class="error-banner">' + failures + ' documento(s) não puderam ser classificados automaticamente e foram marcados como "Outros".</div>';
   }
+
+  return stoppedReason;
 }
 
 async function classifyDocument(doc) {
@@ -811,10 +824,10 @@ function bytesToBase64(bytes) {
   return btoa(binary);
 }
 
-async function buildPdfsByType() {
+async function buildPdfsByType(docsToInclude) {
   const { PDFDocument, degrees } = PDFLib;
   const groups = {};
-  docs.forEach(doc => {
+  docsToInclude.forEach(doc => {
     const t = doc.type || 'Outros';
     if (!groups[t]) groups[t] = [];
     groups[t].push(doc);
@@ -925,18 +938,25 @@ async function sendAll() {
   errorArea.innerHTML = '';
   sendNote.textContent = 'Classificando ' + docs.length + ' documento(s)…';
 
+  let stoppedReason = null;
   try {
-    await classifyAll();
+    stoppedReason = await classifyAll();
   } catch (err) {
-    if (err.message === 'Teste grátis esgotado') {
+    // só "Link inválido" chega aqui — sem token válido não tem pra onde mandar nada
+    sendNote.textContent = 'Esse link não é mais válido. Peça um novo ao seu advogado.';
+    generateBtn.disabled = false;
+    return;
+  }
+
+  const classifiedDocs = docs.filter(d => d.type);
+
+  if (classifiedDocs.length === 0) {
+    // nada foi classificado antes de parar — não tem o que enviar
+    sendNote.textContent = '';
+    if (stoppedReason === 'Teste grátis esgotado') {
       document.getElementById('upgradeCard').style.display = 'block';
       document.getElementById('upgradeCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
-      sendNote.textContent = '';
-      generateBtn.disabled = true;
-      return;
-    } else if (err.message === 'Link inválido') {
-      sendNote.textContent = 'Esse link não é mais válido. Peça um novo ao seu advogado.';
-    } else {
+    } else if (stoppedReason === 'Limite diário atingido') {
       sendNote.textContent = 'O limite de documentos por hoje foi atingido. Tenta novamente amanhã ou fala com seu advogado.';
     }
     generateBtn.disabled = false;
@@ -944,39 +964,49 @@ async function sendAll() {
   }
 
   sendNote.textContent = 'Montando os PDFs…';
-  const { clientName, results } = await buildPdfsByType();
+  const { clientName, results } = await buildPdfsByType(classifiedDocs);
   renderGroups(results);
 
   const MAX_EMAIL_BYTES = 18 * 1024 * 1024; // margem segura abaixo do teto comum de 25MB dos provedores de e-mail
   const totalBytes = results.reduce((sum, r) => sum + Math.ceil(r.base64.length * 0.75), 0);
   const filesPayload = results.map(r => ({ filename: r.fileName, base64: r.base64 }));
 
+  let sendSucceeded = false;
   if (totalBytes > MAX_EMAIL_BYTES) {
-    await sendViaStorageLink(clientName, filesPayload);
-    generateBtn.disabled = false;
-    return;
-  }
-
-  sendNote.textContent = 'Enviando para o advogado…';
-  try {
-    const response = await fetch('/api/send-email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clientName, files: filesPayload, token })
-    });
-    if (response.status === 401) throw new Error('Link inválido');
-    if (!response.ok) throw new Error('Falha no envio (' + response.status + ')');
-    sendNote.textContent = 'Documentos enviados. Também dá pra baixar cada PDF abaixo, se precisar.';
-  } catch (err) {
-    console.error('Send error', err);
-    if (err.message === 'Link inválido') {
-      sendNote.textContent = 'Esse link não é mais válido. Peça um novo ao seu advogado.';
-    } else {
-      // tenta o caminho de reserva (link de download) antes de pedir pro cliente fazer algo manual
-      sendNote.textContent = 'O envio direto falhou, tentando um jeito alternativo…';
-      await sendViaStorageLink(clientName, filesPayload);
+    sendSucceeded = await sendViaStorageLink(clientName, filesPayload);
+  } else {
+    sendNote.textContent = 'Enviando para o advogado…';
+    try {
+      const response = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientName, files: filesPayload, token })
+      });
+      if (response.status === 401) throw new Error('Link inválido');
+      if (!response.ok) throw new Error('Falha no envio (' + response.status + ')');
+      sendNote.textContent = 'Documentos enviados. Também dá pra baixar cada PDF abaixo, se precisar.';
+      sendSucceeded = true;
+    } catch (err) {
+      console.error('Send error', err);
+      if (err.message === 'Link inválido') {
+        sendNote.textContent = 'Esse link não é mais válido. Peça um novo ao seu advogado.';
+      } else {
+        sendNote.textContent = 'O envio direto falhou, tentando um jeito alternativo…';
+        sendSucceeded = await sendViaStorageLink(clientName, filesPayload);
+      }
     }
   }
+
+  const skippedCount = docs.length - classifiedDocs.length;
+  if (sendSucceeded && skippedCount > 0) {
+    sendNote.textContent += ` (${skippedCount} documento(s) não coube(ram) no teste grátis e não foram enviados.)`;
+  }
+
+  if (stoppedReason === 'Teste grátis esgotado') {
+    document.getElementById('upgradeCard').style.display = 'block';
+    document.getElementById('upgradeCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   generateBtn.disabled = false;
 }
 
@@ -990,10 +1020,12 @@ async function sendViaStorageLink(clientName, filesPayload) {
     });
     if (!response.ok) throw new Error('upload-large failed');
     sendNote.textContent = 'Pronto! O arquivo era grande demais pra anexar direto, então mandamos um link de download pro seu advogado por e-mail — não precisa fazer mais nada.';
+    return true;
   } catch (err) {
     console.error('sendViaStorageLink error', err);
     const emailNote = lawyerEmail ? ` (${lawyerEmail})` : '';
     sendNote.textContent = `Não deu pra enviar automaticamente de nenhum jeito. Baixa os arquivos abaixo e manda direto pro seu advogado${emailNote}.`;
+    return false;
   }
 }
 </script>
