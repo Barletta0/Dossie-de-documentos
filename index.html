@@ -316,6 +316,7 @@
 
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
 
@@ -415,6 +416,10 @@
 </div>
 
 <div id="appState" style="display:none">
+<div class="site-header-bar">
+  <a href="/" class="logo">dossiê<span class="doc">doc</span></a>
+  <a href="/" class="home-link">Página inicial</a>
+</div>
 <div class="wrap">
 
   <div id="invalidState" class="state-message" style="display:none">
@@ -445,8 +450,8 @@
       <p class="step-title">Documentos</p>
       <div class="dropzone" id="dropzone">
         <p><strong>Coloque seus documentos aqui</strong></p>
-        <p style="margin-top:4px">Clique ou arraste fotos ou PDFs — pode enviar vários de uma vez, sem precisar de ordem</p>
-        <input type="file" id="fileInput" accept="image/*,application/pdf" multiple>
+        <p style="margin-top:4px">Clique ou arraste fotos, PDFs ou um .zip com tudo dentro — pode enviar vários de uma vez, sem precisar de ordem</p>
+        <input type="file" id="fileInput" accept="image/*,application/pdf,.zip" multiple>
       </div>
       <div class="doc-list" id="docList"></div>
       <div id="errorArea"></div>
@@ -560,28 +565,74 @@ dropzone.addEventListener('drop', e => {
 });
 fileInput.addEventListener('change', e => handleFiles(e.target.files));
 
-function handleFiles(fileList) {
+async function handleFiles(fileList) {
   errorArea.innerHTML = '';
-  const files = Array.from(fileList).filter(f => f.type.startsWith('image/') || f.type === 'application/pdf');
-  files.forEach(file => {
-    if (file.type === 'application/pdf') {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result;
-        const base64 = dataUrl.split(',')[1];
-        addDoc(file, dataUrl, base64, file.type, true);
-      };
-      reader.readAsDataURL(file);
-    } else {
-      normalizeImageOrientation(file)
-        .then(({ dataUrl, base64, mediaType }) => addDoc(file, dataUrl, base64, mediaType, false))
-        .catch(err => {
-          console.error('Erro ao normalizar imagem', file.name, err);
-          errorArea.innerHTML = '<div class="error-banner">Não consegui processar "' + escapeHtml(file.name) + '". Tenta enviar de novo.</div>';
-        });
+  const rawFiles = Array.from(fileList);
+
+  for (const file of rawFiles) {
+    const isZip = file.name.toLowerCase().endsWith('.zip') ||
+      file.type === 'application/zip' || file.type === 'application/x-zip-compressed';
+    if (isZip) {
+      await handleZipFile(file);
+    } else if (file.type.startsWith('image/') || file.type === 'application/pdf') {
+      processSingleFile(file);
     }
-  });
+  }
   fileInput.value = '';
+}
+
+function processSingleFile(file) {
+  if (file.type === 'application/pdf') {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result;
+      const base64 = dataUrl.split(',')[1];
+      addDoc(file, dataUrl, base64, file.type, true);
+    };
+    reader.readAsDataURL(file);
+  } else {
+    normalizeImageOrientation(file)
+      .then(({ dataUrl, base64, mediaType }) => addDoc(file, dataUrl, base64, mediaType, false))
+      .catch(err => {
+        console.error('Erro ao normalizar imagem', file.name, err);
+        errorArea.innerHTML = '<div class="error-banner">Não consegui processar "' + escapeHtml(file.name) + '". Tenta enviar de novo.</div>';
+      });
+  }
+}
+
+function extensionToMime(name) {
+  const ext = name.split('.').pop().toLowerCase();
+  if (ext === 'png') return 'image/png';
+  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+  if (ext === 'pdf') return 'application/pdf';
+  return null;
+}
+
+// Abre o .zip no navegador (sem precisar de servidor), e trata cada arquivo
+// de dentro exatamente como se tivesse sido enviado solto — mesma
+// classificação, mesma detecção de duplicado, mesma ordenação depois.
+async function handleZipFile(zipFile) {
+  try {
+    const zip = await JSZip.loadAsync(zipFile);
+    const entries = Object.values(zip.files).filter(f => !f.dir);
+    let skipped = 0;
+
+    for (const entry of entries) {
+      const plainName = entry.name.split('/').pop();
+      const mime = extensionToMime(plainName);
+      if (!mime) { skipped++; continue; }
+      const blob = await entry.async('blob');
+      const file = new File([blob], plainName, { type: mime });
+      processSingleFile(file);
+    }
+
+    if (skipped > 0) {
+      errorArea.innerHTML = '<div class="error-banner">' + skipped + ' arquivo(s) dentro do .zip foram ignorados (não eram foto nem PDF).</div>';
+    }
+  } catch (err) {
+    console.error('Erro ao abrir zip', zipFile.name, err);
+    errorArea.innerHTML = '<div class="error-banner">Não consegui abrir "' + escapeHtml(zipFile.name) + '". Confere se é um .zip válido.</div>';
+  }
 }
 
 let duplicatesSkipped = 0;

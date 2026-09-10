@@ -1,8 +1,8 @@
-# Dossiê de Documentos
+# DossiêDoc
 
-Cliente sobe fotos ou PDFs → IA classifica, reorienta foto de lado/de ponta-cabeça, ordena por página e data → PDFs organizados chegam por e-mail pro advogado.
+Cliente sobe fotos, PDFs, ou um .zip contendo tudo isso misturado → IA classifica, reorienta foto de lado/de ponta-cabeça, ordena por página e data → PDFs organizados chegam por e-mail pra quem gerou o link. Um .zip é extraído inteiramente no navegador (via JSZip) — cada arquivo dentro dele passa pelo mesmo pipeline de um arquivo solto, incluindo classificação, detecção de duplicado e ordenação; arquivos que não são foto nem PDF dentro do zip são ignorados com aviso.
 
-Cada foto é redimensionada (máximo 1800px no lado maior) e comprimida antes de virar página de PDF — mantém o texto legível, mas evita anexo de e-mail gigante em lotes grandes. Se mesmo assim o total passar de ~18MB (perto do teto comum de 25MB dos provedores de e-mail), o site sobe os PDFs pra um armazenamento temporário e manda o advogado um link de download por e-mail (válido por 3 dias) — sem exigir nenhuma ação manual do cliente. Documentos com conteúdo idêntico ao de outro já enviado na mesma leva (mesma foto selecionada duas vezes, por exemplo) são detectados e ignorados automaticamente, com aviso de quantos foram pulados.
+Cada foto é redimensionada (máximo 1800px no lado maior) e comprimida antes de virar página de PDF — mantém o texto legível, mas evita anexo de e-mail gigante em lotes grandes. Se mesmo assim o total passar de ~18MB (perto do teto comum de 25MB dos provedores de e-mail), o site sobe os PDFs pra um armazenamento temporário e manda um link de download por e-mail (válido por 3 dias) — sem exigir nenhuma ação manual do cliente. Documentos com conteúdo idêntico ao de outro já enviado na mesma leva (mesma foto selecionada duas vezes, por exemplo) são detectados e ignorados automaticamente, com aviso de quantos foram pulados.
 
 ## As telas
 

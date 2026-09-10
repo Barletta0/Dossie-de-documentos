@@ -262,3 +262,29 @@ button.primary:disabled { background: var(--line); color: var(--ink-soft); box-s
   font-weight: 700;
   margin-bottom: 8px;
 }
+
+/* Cabeçalho de marca — usado em todas as telas secundárias
+   (cadastro, login, conta, termos), com link de volta pra página inicial */
+.site-header-bar {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 24px 24px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.site-header-bar .logo {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 800;
+  font-size: 20px;
+  text-decoration: none;
+  color: var(--navy);
+}
+.site-header-bar .logo .doc { color: var(--green); }
+.site-header-bar .home-link {
+  color: var(--ink-soft);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+}
+.site-header-bar .home-link:hover { color: var(--blue); }
