@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Entrar — Dossiê de Documentos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="kicker">Dossiê de Documentos</div>
+    <h1>Entrar na sua conta</h1>
+    <p class="sub">Acesse com o e-mail e senha que você cadastrou.</p>
+  </header>
+
+  <div class="card">
+    <label class="field-label" for="email">E-mail</label>
+    <input type="email" id="email" placeholder="voce@email.com">
+    <label class="field-label" for="password" style="margin-top:14px">Senha</label>
+    <input type="password" id="password" placeholder="Sua senha">
+    <div id="errorArea"></div>
+    <button class="primary" id="loginBtn">Entrar</button>
+    <p class="note">Ainda não tem conta? <a href="/cadastro.html">Criar conta e testar grátis</a></p>
+  </div>
+
+</div>
+
+<script>
+const loginBtn = document.getElementById('loginBtn');
+const errorArea = document.getElementById('errorArea');
+
+loginBtn.addEventListener('click', login);
+
+async function login() {
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  errorArea.innerHTML = '';
+
+  if (!email || !password) {
+    errorArea.innerHTML = '<div class="error-banner">Preenche e-mail e senha.</div>';
+    return;
+  }
+
+  loginBtn.disabled = true;
+  loginBtn.textContent = 'Entrando…';
+
+  try {
+    const response = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    if (response.status === 401) {
+      errorArea.innerHTML = '<div class="error-banner">E-mail ou senha incorretos.</div>';
+      loginBtn.disabled = false;
+      loginBtn.textContent = 'Entrar';
+      return;
+    }
+    if (!response.ok) throw new Error('Falha no login');
+    const data = await response.json();
+
+    window.location.href = '/conta.html?token=' + encodeURIComponent(data.token);
+  } catch (err) {
+    console.error('login error', err);
+    errorArea.innerHTML = '<div class="error-banner">Não deu pra entrar agora. Tenta de novo em instantes.</div>';
+    loginBtn.disabled = false;
+    loginBtn.textContent = 'Entrar';
+  }
+}
+</script>
+</body>
+</html>

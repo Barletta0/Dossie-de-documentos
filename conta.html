@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Minha conta — Dossiê de Documentos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="wrap">
+
+  <div id="loadingState" class="state-message">
+    <p>Carregando…</p>
+  </div>
+
+  <div id="invalidState" class="state-message" style="display:none">
+    <h2>Não foi possível abrir sua conta</h2>
+    <p>Faz login de novo.</p>
+    <button class="primary" onclick="location.href='/login.html'">Ir para o login</button>
+  </div>
+
+  <div id="paidState" style="display:none">
+    <header>
+      <div class="kicker">Dossiê de Documentos</div>
+      <h1 id="paidGreeting">Assinatura ativa</h1>
+      <p class="sub">Esse é o seu link definitivo — manda pros seus clientes. Cada um coloca o próprio nome ao enviar os documentos.</p>
+    </header>
+    <div class="card">
+      <p class="step-title">Seu link para clientes</p>
+      <div class="link-box">
+        <code id="clientLink"></code>
+        <button class="copy-btn" id="copyBtn">Copiar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="trialState" style="display:none">
+    <header>
+      <div class="kicker">Dossiê de Documentos</div>
+      <h1 id="trialGreeting">Ainda em teste</h1>
+      <p class="sub">Você ainda está no teste grátis de 3 documentos. Depois de assinar, essa página passa a mostrar seu link definitivo pra mandar aos clientes.</p>
+    </header>
+    <div class="card">
+      <p class="step-title">Continuar testando</p>
+      <p class="note">Use seus próprios documentos pra ver a classificação funcionando.</p>
+      <button class="primary" id="testBtn">Ir para o teste</button>
+    </div>
+    <div class="card">
+      <p class="step-title">Assinar — R$ 39,90/mês</p>
+      <p class="note">60 documentos por dia, sem limite de clientes.</p>
+      <div class="link-box">
+        <code>chave-pix-a-definir@exemplo.com</code>
+        <button class="copy-btn" id="copyPixBtn">Copiar</button>
+      </div>
+      <p class="note">Depois de pagar, manda o comprovante pro WhatsApp — a liberação é manual até novembro.</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const token = new URLSearchParams(window.location.search).get('token');
+const loadingState = document.getElementById('loadingState');
+const invalidState = document.getElementById('invalidState');
+const paidState = document.getElementById('paidState');
+const trialState = document.getElementById('trialState');
+
+init();
+
+async function init() {
+  if (!token) return showInvalid();
+  try {
+    const response = await fetch('/api/lawyer-info?token=' + encodeURIComponent(token));
+    if (!response.ok) return showInvalid();
+    const data = await response.json();
+
+    loadingState.style.display = 'none';
+    if (data.paid) {
+      document.getElementById('paidGreeting').textContent = 'Assinatura ativa, ' + (data.name || '') ;
+      document.getElementById('clientLink').textContent = window.location.origin + '/?token=' + token;
+      paidState.style.display = 'block';
+      document.getElementById('copyBtn').addEventListener('click', () => {
+        navigator.clipboard.writeText(document.getElementById('clientLink').textContent).then(() => {
+          const btn = document.getElementById('copyBtn');
+          btn.textContent = 'Copiado!';
+          setTimeout(() => { btn.textContent = 'Copiar'; }, 1800);
+        });
+      });
+    } else {
+      document.getElementById('trialGreeting').textContent = 'Olá, ' + (data.name || '');
+      trialState.style.display = 'block';
+      document.getElementById('testBtn').addEventListener('click', () => {
+        window.location.href = '/?token=' + encodeURIComponent(token);
+      });
+      document.getElementById('copyPixBtn').addEventListener('click', (e) => {
+        navigator.clipboard.writeText('chave-pix-a-definir@exemplo.com').then(() => {
+          e.target.textContent = 'Copiado!';
+          setTimeout(() => { e.target.textContent = 'Copiar'; }, 1800);
+        });
+      });
+    }
+  } catch (err) {
+    console.error('init error', err);
+    showInvalid();
+  }
+}
+
+function showInvalid() {
+  loadingState.style.display = 'none';
+  invalidState.style.display = 'block';
+}
+</script>
+</body>
+</html>

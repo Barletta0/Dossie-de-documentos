@@ -1,19 +1,31 @@
-# Organizador de Documentos
+# Dossiê de Documentos
 
-Fluxo em um clique só: o cliente sobe os documentos e aperta "Enviar" — a classificação, montagem do PDF e envio por e-mail rodam em sequência, sem passo intermediário. Aceita foto e PDF. Fotos viram página de PDF; PDFs enviados são unidos de verdade (não redesenhados). Antes de tudo, cada foto é redesenhada num canvas do navegador — isso corrige o problema comum de foto de celular que aparece em pé no app mas salva torta (orientação EXIF), garantindo que a foto analisada e a foto no PDF final sejam sempre a mesma, já correta. Dentro de cada tipo de documento, a IA tenta extrair a data de competência (ex: mês do holerite) e ordena os documentos por ela antes de juntar — quando não identifica data, mantém a ordem de envio.
+Cliente sobe fotos ou PDFs → IA classifica, reorienta foto de lado/de ponta-cabeça, ordena por página e data → PDFs organizados chegam por e-mail pro advogado.
 
-Duas telas:
+## As telas
 
-- **`/cadastro.html`** — o advogado se cadastra com nome e e-mail e recebe um link único.
-- **`/` (index.html)** — o cliente abre o link do advogado, sobe fotos, a IA classifica, e os PDFs organizados chegam por e-mail direto pro advogado dono daquele link.
+- **`/` (index.html)** — sem token na URL: mostra a landing page (venda). Com token válido: mostra a tela de upload do cliente.
+- **`/cadastro.html`** — advogado cria conta (nome, e-mail, senha) e já cai direto na tela de teste, usando o próprio token.
+- **`/login.html`** — advogado entra com e-mail/senha.
+- **`/conta.html`** — depois do login: se ainda não pago, mostra o teste e o PIX; se já pago, mostra o link definitivo pra mandar aos clientes.
 
-Cada advogado cadastrado tem seu próprio token embutido no link — os documentos de um advogado nunca vão parar no e-mail de outro.
+Cada advogado tem um token único. Um segundo tipo de link, de uso único por cliente, também existe (gerado via `/api/generate-client-link`, ainda sem tela própria) — os dois tipos de token funcionam nos mesmos lugares.
+
+## Teste grátis e liberação de pagamento
+
+Todo advogado começa **não pago**. Ele mesmo (ou qualquer cliente usando o link dele) pode classificar até `TRIAL_LIMIT` documentos (padrão: 3) no total. Depois disso, a classificação é bloqueada com uma mensagem pedindo pra assinar, até você liberar manualmente.
+
+**Pra liberar depois de confirmar o PIX:**
+1. Abre o Supabase → **Table Editor** → tabela `lawyers`.
+2. Acha a linha pelo e-mail do advogado.
+3. Muda a coluna `paid` de `false` pra `true`.
+4. Pronto — no próximo acesso a `/conta.html` ou no próximo documento enviado, o limite de 3 some.
 
 ## O que você precisa antes de começar
 
-1. **Anthropic** — [console.anthropic.com](https://console.anthropic.com), seção "API Keys". Pago por uso (poucos centavos por documento classificado).
-2. **Resend** — [resend.com](https://resend.com), tem plano grátis que cobre bem esse volume. Pegue a chave em "API Keys".
-3. **Supabase** — [supabase.com](https://supabase.com), plano grátis. É onde ficam guardados os advogados cadastrados (nome, e-mail, token).
+1. **Anthropic** — [console.anthropic.com](https://console.anthropic.com), seção "API Keys". Pago por uso (poucos centavos por documento).
+2. **Resend** — [resend.com](https://resend.com), plano grátis cobre bem esse volume.
+3. **Supabase** — [supabase.com](https://supabase.com), plano grátis. Guarda advogados, senhas (com hash), status de pagamento e uso.
 4. **Vercel** — [vercel.com](https://vercel.com), grátis, hospeda o site.
 5. **GitHub** — pra o Vercel puxar o projeto de lá.
 
@@ -21,15 +33,16 @@ Cada advogado cadastrado tem seu próprio token embutido no link — os document
 
 ### 1. Crie o projeto no Supabase
 
-- Crie um projeto novo em [supabase.com](https://supabase.com)
-- Vá em "SQL Editor" e rode:
+Crie um projeto novo, vá em "SQL Editor" e rode:
 
 ```sql
 create table lawyers (
   id uuid primary key default gen_random_uuid(),
   name text not null,
-  email text not null,
+  email text not null unique,
   token text not null unique,
+  password_hash text,
+  paid boolean not null default false,
   created_at timestamptz default now()
 );
 
@@ -38,24 +51,46 @@ create table usage_events (
   token text not null,
   created_at timestamptz default now()
 );
-
 create index usage_events_token_idx on usage_events (token, created_at);
+
+create table client_links (
+  id uuid primary key default gen_random_uuid(),
+  lawyer_token text not null,
+  token text not null unique,
+  client_name text,
+  used boolean not null default false,
+  created_at timestamptz default now()
+);
 ```
 
-- Vá em "Project Settings" → "API". Copie a **Project URL** (vira `SUPABASE_URL`) e a chave **service_role** (vira `SUPABASE_SERVICE_KEY` — nunca use a chave `anon` aqui, essa fica só no servidor).
+Se você já tinha as tabelas `lawyers` e `usage_events` criadas de uma versão anterior, roda só o que falta:
+
+```sql
+alter table lawyers add column password_hash text;
+alter table lawyers add column paid boolean not null default false;
+alter table lawyers add constraint lawyers_email_unique unique (email);
+
+create table client_links (
+  id uuid primary key default gen_random_uuid(),
+  lawyer_token text not null,
+  token text not null unique,
+  client_name text,
+  used boolean not null default false,
+  created_at timestamptz default now()
+);
+```
+
+Depois, em "Project Settings" → "API", copie a **Project URL** (`SUPABASE_URL`) e a chave **service_role** (`SUPABASE_SERVICE_KEY` — nunca a `anon`).
 
 ### 2. Suba o projeto pro GitHub
 
-Crie um repositório novo e suba esta pasta inteira nele.
+Crie um repositório e suba a pasta inteira, incluindo a pasta `api`.
 
 ### 3. Conecte no Vercel
 
-- "Add New" → "Project" → escolha o repositório
-- Não precisa mexer em configuração de build
+"Add New" → "Project" → escolhe o repositório. Não precisa mexer em configuração de build.
 
 ### 4. Configure as variáveis de ambiente
-
-Em Settings → Environment Variables do projeto no Vercel:
 
 | Nome | Valor |
 |---|---|
@@ -64,38 +99,42 @@ Em Settings → Environment Variables do projeto no Vercel:
 | `FROM_EMAIL` | `onboarding@resend.dev` (pra testar) ou um e-mail do seu domínio verificado no Resend |
 | `SUPABASE_URL` | URL do seu projeto Supabase |
 | `SUPABASE_SERVICE_KEY` | chave `service_role` do Supabase |
-| `DAILY_LIMIT` | opcional — quantos documentos por dia cada advogado pode classificar antes de ser bloqueado. Padrão: `60` |
+| `DAILY_LIMIT` | opcional — documentos por dia por advogado. Padrão: `60` |
+| `TRIAL_LIMIT` | opcional — documentos grátis antes de exigir pagamento. Padrão: `3` |
 
 ### 5. Deploy
 
-Clique em "Deploy". Em menos de um minuto você tem um link tipo `organizador-documentos.vercel.app`.
+Clique em "Deploy".
 
 ## Testando
 
-1. Abra `organizador-documentos.vercel.app/cadastro.html`, cadastra um nome e e-mail de teste, copia o link gerado.
-2. Abre esse link (algo como `organizador-documentos.vercel.app/?token=xxxxx`) numa aba anônima, simulando o cliente.
-3. Digita um nome, sobe umas fotos, classifica, confere, envia.
-4. O e-mail deve chegar no endereço que você cadastrou no passo 1.
+1. Abre a raiz do site (sem token) — deve mostrar a landing.
+2. Clica em "Testar grátis" → cria uma conta em `/cadastro.html` → já cai na tela de upload com seu próprio token.
+3. Sobe até 3 documentos de teste — no 4º deve bloquear com a mensagem de teste esgotado.
+4. Simula a liberação: marca `paid = true` pra esse advogado no Supabase.
+5. Faz login em `/login.html` com o e-mail/senha que criou → `/conta.html` deve mostrar o link definitivo, sem menção a teste.
+6. Abre esse link numa aba anônima, sobe um documento, confere se chega por e-mail.
 
 ## Sobre o Resend e o `FROM_EMAIL`
 
-Com `onboarding@resend.dev` como remetente, o Resend permite enviar sem verificar domínio, mas com limitações de teste (geralmente só entrega pro e-mail cadastrado na sua conta Resend). Pra usar com advogados de verdade, verifique um domínio próprio no Resend ("Domains" no painel deles) e use um e-mail desse domínio como `FROM_EMAIL`.
+Com `onboarding@resend.dev`, o Resend só entrega pro e-mail dono da conta Resend, sem verificar domínio. Pra entregar pro e-mail de qualquer advogado, verifique um domínio próprio no Resend ("Domains") e use um e-mail desse domínio como `FROM_EMAIL`.
 
 ## Se algo travar
 
-- **Cadastro não gera link**: confere `SUPABASE_URL` e `SUPABASE_SERVICE_KEY`, e se a tabela `lawyers` foi criada certinho.
-- **Link mostra "Link inválido"**: o token não bateu com nenhum registro na tabela — confere se o cadastro realmente salvou (dá uma olhada na tabela pelo painel do Supabase, aba "Table Editor").
-- **Classificação não funciona**: confere `ANTHROPIC_API_KEY` e crédito na conta Anthropic.
-- **E-mail não chega**: confere `RESEND_API_KEY` e `FROM_EMAIL`; olha os logs em Vercel → projeto → "Deployments" → deploy → "Functions" → `send-email`.
-- **PDFs geram mas o envio falha**: o site já cobre isso — mostra aviso e deixa baixar cada PDF na mão como reserva.
+- **Cadastro falha**: confere `SUPABASE_URL`/`SUPABASE_SERVICE_KEY`, se as tabelas existem, e se o e-mail já não está cadastrado (a coluna é `unique`).
+- **Login falha**: confere se a conta foi criada depois da coluna `password_hash` existir — contas antigas sem senha não conseguem logar até se recadastrarem.
+- **"Link inválido"**: o token não bateu com nada nas tabelas `lawyers` ou `client_links` — confere no Table Editor do Supabase.
+- **Teste não libera depois de marcar `paid`**: confere se marcou na linha certa (pelo e-mail) e se salvou de verdade.
+- **Classificação não funciona**: confere `ANTHROPIC_API_KEY` e crédito na conta.
+- **E-mail não chega**: confere `RESEND_API_KEY`/`FROM_EMAIL`; olha os logs em Vercel → projeto → Deployments → deploy → Functions → `send-email`.
 
-## Sobre compartilhamento do link
+## Sobre segurança do link
 
-Hoje o link de um advogado é o mesmo pra todos os clientes dele — reutilizável, não expira. Isso já resolve o risco principal (documento ir pro e-mail errado). Se o link circular além do cliente pretendido, o dano fica contido: existe um limite diário de documentos por advogado (`DAILY_LIMIT`), então ninguém consegue estourar sua conta na API mesmo se o link vazar. Se o volume legítimo de algum advogado crescer além do limite padrão, é só ajustar a variável no Vercel. Se o volume crescer a ponto de exigir mais controle, o próximo passo é gerar um link descartável por cliente (usa uma vez, expira).
+O link de um advogado é reutilizável e não expira por padrão — evita vazamento de documento pro e-mail errado, mas um link pode circular além do cliente pretendido. Duas travas contêm o estrago: o limite diário (`DAILY_LIMIT`) e, pra quem não pagou, o teste de `TRIAL_LIMIT` documentos. Existe também suporte a link de uso único por cliente (tabela `client_links`, função `/api/generate-client-link`), pra quando fizer sentido gerar um link novo por atendimento em vez de reutilizar o mesmo sempre.
 
 ## Próximos passos possíveis (não incluídos aqui)
 
-- Link individual e descartável por cliente, em vez de um link fixo por advogado
-- Painel pra o advogado ver o histórico de documentos recebidos
+- Tela dedicada pra gerar o link de uso único por cliente (a função de backend já existe)
+- Pagamento automático com cartão/débito (Mercado Pago ou Asaas) substituindo a liberação manual por PIX
+- Painel pro advogado ver o histórico de documentos recebidos
 - Salvar direto numa pasta do Google Drive em vez de e-mail
-- Cobrança/assinatura, se decidir abrir pra outros advogados além da família

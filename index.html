@@ -3,13 +3,416 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Organizador de Documentos</title>
+<title>Dossiê de Documentos</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css">
+<style>
+  :root {
+    --blue: #2D6FE0;
+    --blue-dark: #1E52B8;
+    --green: #1FB574;
+    --navy: #142033;
+    --ink-soft: #5b6577;
+    --bg: #F4F6F9;
+    --white: #ffffff;
+    --line: #E4E8EF;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--white);
+    color: var(--navy);
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  .landing-wrap { max-width: 1120px; margin: 0 auto; padding: 0 28px; }
+
+  /* header */
+  header.site-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 0;
+  }
+  .logo {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 800;
+    font-size: 22px;
+  }
+  .logo .doc { color: var(--green); }
+  nav.main-nav { display: flex; gap: 32px; }
+  nav.main-nav a {
+    color: var(--ink-soft);
+    text-decoration: none;
+    font-size: 14.5px;
+    font-weight: 500;
+  }
+  nav.main-nav a:hover { color: var(--navy); }
+  @media (max-width: 720px) { nav.main-nav { display: none; } }
+  .btn-login {
+    border: 1.5px solid var(--line);
+    border-radius: 24px;
+    padding: 9px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--navy);
+    background: none;
+    cursor: pointer;
+  }
+
+  /* hero */
+  .hero-section {
+    background: var(--bg);
+    border-radius: 32px;
+    margin: 12px 0 40px;
+    padding: 64px 40px;
+    position: relative;
+    overflow: hidden;
+  }
+  @media (max-width: 720px) { .hero-section { padding: 40px 24px; border-radius: 24px; } }
+  .hero-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+    align-items: center;
+    position: relative;
+    z-index: 2;
+  }
+  @media (max-width: 860px) { .hero-grid { grid-template-columns: 1fr; } }
+
+  .hero-copy h1 {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 800;
+    font-size: 40px;
+    line-height: 1.2;
+    margin: 0 0 20px;
+  }
+  .hero-copy h1 .accent { color: var(--blue); }
+  .hero-copy p.lead {
+    color: var(--ink-soft);
+    font-size: 16px;
+    max-width: 42ch;
+    margin: 0 0 28px;
+  }
+  .btn-primary {
+    display: inline-block;
+    background: var(--blue);
+    color: #fff;
+    border: none;
+    border-radius: 30px;
+    padding: 16px 30px;
+    font-family: 'Poppins', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 0 10px 24px rgba(45, 111, 224, 0.28);
+  }
+  .btn-primary:hover { background: var(--blue-dark); }
+
+  /* mockup */
+  .mockup-wrap { position: relative; }
+  .dots {
+    position: absolute;
+    inset: -30px -20px auto auto;
+    width: 160px;
+    height: 140px;
+    background-image: radial-gradient(var(--green) 3px, transparent 3px);
+    background-size: 18px 18px;
+    opacity: 0.55;
+    z-index: 1;
+  }
+  .browser-frame {
+    background: var(--white);
+    border-radius: 18px;
+    box-shadow: 0 24px 60px rgba(20, 32, 51, 0.18);
+    overflow: hidden;
+    position: relative;
+    z-index: 2;
+    transform: rotate(-2deg);
+  }
+  .browser-bar {
+    background: var(--blue);
+    padding: 10px 14px;
+    display: flex;
+    gap: 6px;
+  }
+  .browser-bar span { width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,0.55); display: block; }
+  .browser-body { padding: 18px; background: var(--bg); }
+  .mock-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--white);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+  }
+  .mock-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+  .mock-tag {
+    display: inline-block;
+    background: #E9F2FF;
+    color: var(--blue);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 12px;
+    margin-left: auto;
+  }
+  .mock-upload {
+    border: 2px dashed #C7D3E6;
+    border-radius: 12px;
+    padding: 22px;
+    text-align: center;
+    color: var(--ink-soft);
+    font-size: 12.5px;
+    margin-top: 12px;
+    background: var(--white);
+  }
+
+  /* steps */
+  .steps-section { padding: 20px 0 56px; text-align: center; }
+  .steps-section h2 {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 700;
+    font-size: 28px;
+    margin: 0 0 8px;
+  }
+  .steps-section .sub { color: var(--ink-soft); margin: 0 0 40px; }
+  .steps-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  @media (max-width: 720px) { .steps-cards { grid-template-columns: 1fr; } }
+  .step-card {
+    background: var(--bg);
+    border-radius: 20px;
+    padding: 28px 22px;
+    text-align: left;
+  }
+  .step-badge {
+    width: 40px; height: 40px;
+    border-radius: 12px;
+    background: var(--blue);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    margin-bottom: 16px;
+  }
+  .step-card:nth-child(2) .step-badge { background: var(--green); }
+  .step-card:nth-child(3) .step-badge { background: #7C5CE0; }
+  .step-card h3 { font-family: 'Poppins', sans-serif; font-size: 16.5px; margin: 0 0 8px; }
+  .step-card p { color: var(--ink-soft); font-size: 13.5px; margin: 0; }
+
+  /* trial */
+  .trial-banner {
+    background: linear-gradient(135deg, var(--blue), #5B8DEF);
+    border-radius: 24px;
+    padding: 40px;
+    color: #fff;
+    text-align: center;
+    margin-bottom: 56px;
+  }
+  .trial-banner h3 { font-family: 'Poppins', sans-serif; font-size: 22px; margin: 0 0 8px; }
+  .trial-banner p { opacity: 0.9; margin: 0 0 22px; max-width: 50ch; margin-left: auto; margin-right: auto; }
+  .btn-white {
+    background: #fff;
+    color: var(--blue);
+    border: none;
+    border-radius: 30px;
+    padding: 14px 28px;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+  }
+
+  /* pricing */
+  .pricing-section { padding: 0 0 64px; text-align: center; }
+  .pricing-section h2 { font-family: 'Poppins', sans-serif; font-size: 28px; margin: 0 0 8px; }
+  .pricing-section .sub { color: var(--ink-soft); margin: 0 0 36px; }
+  .price-card {
+    background: var(--bg);
+    border-radius: 28px;
+    padding: 40px;
+    max-width: 420px;
+    margin: 0 auto;
+    text-align: left;
+  }
+  .price-card .plan-tag {
+    display: inline-block;
+    background: #E9F2FF;
+    color: var(--blue);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 5px 12px;
+    border-radius: 14px;
+    margin-bottom: 16px;
+  }
+  .price-card .amount {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 800;
+    font-size: 44px;
+    margin: 0 0 4px;
+  }
+  .price-card .amount span { font-size: 15px; font-weight: 500; color: var(--ink-soft); }
+  .price-card ul { list-style: none; padding: 0; margin: 24px 0; }
+  .price-card li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    font-size: 14px;
+  }
+  .price-card li .check {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: var(--blue);
+    color: #fff;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .pix-box {
+    background: #fff;
+    border-radius: 14px;
+    padding: 16px;
+    margin-top: 18px;
+  }
+  .pix-box .label { font-size: 11.5px; color: var(--ink-soft); font-weight: 600; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .pix-box .key { font-family: monospace; font-size: 13.5px; word-break: break-all; margin-bottom: 10px; }
+  .pix-box .instructions { font-size: 12px; color: var(--ink-soft); line-height: 1.6; }
+  .faq-note { font-size: 13px; color: var(--ink-soft); max-width: 46ch; margin: 24px auto 0; }
+  .faq-note b { color: var(--navy); }
+
+  footer.page-footer {
+    background: var(--navy);
+    color: rgba(255,255,255,0.6);
+    text-align: center;
+    padding: 28px 0;
+    font-size: 13px;
+    border-radius: 28px 28px 0 0;
+  }
+
+  /* evita herdar a margem do header genérico do app quando embutido no index.html */
+  header.site-header { margin-bottom: 0; }
+
+
+</style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 </head>
 <body>
+
+<div id="landingState">
+<div class="landing-wrap">
+  <header class="site-header">
+    <div class="logo">dossiê<span class="doc">doc</span></div>
+    <nav class="main-nav">
+      <a href="#como-funciona">Como funciona</a>
+      <a href="#precos">Preços</a>
+    </nav>
+    <button class="btn-login" onclick="location.href='/login.html'">Entrar</button>
+  </header>
+</div>
+
+<div class="landing-wrap">
+  <section class="hero-section">
+    <div class="hero-grid">
+      <div class="hero-copy">
+        <h1>Documentos do cliente, <span class="accent">organizados sozinhos.</span></h1>
+        <p class="lead">Seu cliente sobe as fotos ou PDFs por um link. A IA identifica cada tipo de documento, junta certinho e manda pra você — sem baixar, converter ou organizar nada na mão.</p>
+        <button class="btn-primary" onclick="location.href='/cadastro.html'">Quero testar grátis</button>
+      </div>
+      <div class="mockup-wrap">
+        <div class="dots"></div>
+        <div class="browser-frame">
+          <div class="browser-bar"><span></span><span></span><span></span></div>
+          <div class="browser-body">
+            <div class="mock-row"><span class="mock-dot"></span> identificacao.png → RG_Maria.pdf <span class="mock-tag">RG</span></div>
+            <div class="mock-row"><span class="mock-dot"></span> recibo_marco.png → Comprovante_Marco.pdf <span class="mock-tag">Comprovante</span></div>
+            <div class="mock-row"><span class="mock-dot"></span> comprovante.png → Comprovante_Maria.pdf <span class="mock-tag">Comprovante</span></div>
+            <div class="mock-upload">Solte novos documentos aqui</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="landing-wrap" id="como-funciona">
+  <section class="steps-section">
+    <h2>Como funciona</h2>
+    <p class="sub">Três passos, do link até o e-mail organizado</p>
+    <div class="steps-cards">
+      <div class="step-card">
+        <div class="step-badge">1</div>
+        <h3>Gere seu link</h3>
+        <p>Cadastra nome e e-mail, recebe um link único pra mandar pros seus clientes.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-badge">2</div>
+        <h3>Cliente sobe os docs</h3>
+        <p>Foto ou PDF, sem precisar organizar nada antes — a ordem não importa.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-badge">3</div>
+        <h3>Chega no seu e-mail</h3>
+        <p>PDF separado por tipo de documento, já organizado e pronto pra usar.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="landing-wrap">
+  <div class="trial-banner">
+    <h3>Teste com seus próprios documentos</h3>
+    <p>Os primeiros 3 documentos são grátis — pode testar com um RG ou holerite seu mesmo, só pra ver a classificação funcionando antes de decidir.</p>
+    <button class="btn-white" onclick="location.href='/cadastro.html'">Começar teste grátis</button>
+  </div>
+</div>
+
+<div class="landing-wrap" id="precos">
+  <section class="pricing-section">
+    <h2>Depois do teste</h2>
+    <p class="sub">Um plano só, sem pegadinha</p>
+    <div class="price-card">
+      <div class="plan-tag">PLANO ÚNICO</div>
+      <div class="amount">R$ 39,90<span>/mês</span></div>
+      <ul>
+        <li><span class="check">✓</span> 60 documentos por dia</li>
+        <li><span class="check">✓</span> Classificação automática por IA</li>
+        <li><span class="check">✓</span> PDFs organizados no seu e-mail</li>
+        <li><span class="check">✓</span> Link único, sem limite de clientes</li>
+      </ul>
+      <div class="pix-box">
+        <div class="label">Pagamento via PIX</div>
+        <div class="key">chave-pix-a-definir@exemplo.com</div>
+        <div class="instructions">Depois de pagar, manda o comprovante pro WhatsApp — a liberação é manual até novembro. A partir de novembro, cartão e liberação automática entram no ar.</div>
+      </div>
+    </div>
+    <p class="faq-note"><b>Tem limite de documentos?</b> Até 60 por dia — bem acima do uso normal de um escritório. Precisando de mais, é só falar com a gente.</p>
+  </section>
+</div>
+
+<footer class="page-footer">DOSSIÊDOC — feito para escritórios de advocacia</footer>
+
+</div>
+
+<div id="appState" style="display:none">
 <div class="wrap">
 
   <div id="invalidState" class="state-message" style="display:none">
@@ -17,7 +420,7 @@
     <p>Esse link não é válido ou expirou. Peça um novo link ao seu advogado.</p>
   </div>
 
-  <div id="loadingState" class="state-message">
+  <div id="loadingState" class="state-message" style="display:none">
     <p>Carregando…</p>
   </div>
 
@@ -49,8 +452,29 @@
       <p class="note" id="sendNote"></p>
       <div class="groups" id="groups"></div>
     </div>
+
+    <div class="card" id="upgradeCard" style="display:none">
+      <p class="step-title">Seu teste grátis acabou</p>
+      <p class="note">Os 3 documentos grátis dessa conta já foram usados. Pra continuar, assina o plano abaixo.</p>
+      <div class="price-card" style="max-width:none; margin-top:16px;">
+        <div class="plan-tag">PLANO ÚNICO</div>
+        <div class="amount">R$ 39,90<span>/mês</span></div>
+        <ul>
+          <li><span class="check">✓</span> 60 documentos por dia</li>
+          <li><span class="check">✓</span> Classificação automática por IA</li>
+          <li><span class="check">✓</span> PDFs organizados no seu e-mail</li>
+          <li><span class="check">✓</span> Link único, sem limite de clientes</li>
+        </ul>
+        <div class="pix-box">
+          <div class="label">Pagamento via PIX</div>
+          <div class="key">chave-pix-a-definir@exemplo.com</div>
+          <div class="instructions">Depois de pagar, manda o comprovante pro WhatsApp — a liberação é manual até novembro. Assim que confirmarmos, seu link libera automaticamente.</div>
+        </div>
+      </div>
+    </div>
   </div>
 
+</div>
 </div>
 
 <script>
@@ -83,9 +507,15 @@ init();
 
 async function init() {
   if (!token) {
-    showInvalid();
+    // sem token na URL: fica na landing (já visível por padrão), nada a fazer
     return;
   }
+
+  // tem token: esconde a landing, mostra o app carregando
+  document.getElementById('landingState').style.display = 'none';
+  document.getElementById('appState').style.display = 'block';
+  loadingState.style.display = 'block';
+
   try {
     const response = await fetch('/api/lawyer-info?token=' + encodeURIComponent(token));
     if (!response.ok) {
@@ -264,9 +694,10 @@ async function classifyAll() {
       doc.type = result.type;
       doc.competencia = result.competencia;
       doc.rotation = result.rotation;
+      doc.pageNum = result.pageNum;
     } catch (err) {
       console.error('Classification error', err);
-      if (err.message === 'Link inválido' || err.message === 'Limite diário atingido') {
+      if (err.message === 'Link inválido' || err.message === 'Limite diário atingido' || err.message === 'Teste grátis esgotado') {
         throw err;
       }
       doc.type = 'Outros';
@@ -295,6 +726,7 @@ async function classifyDocument(doc) {
     })
   });
   if (response.status === 401) throw new Error('Link inválido');
+  if (response.status === 402) throw new Error('Teste grátis esgotado');
   if (response.status === 429) throw new Error('Limite diário atingido');
   if (!response.ok) throw new Error('API error ' + response.status);
   const data = await response.json();
@@ -303,18 +735,30 @@ async function classifyDocument(doc) {
   let type = null;
   let competencia = null;
   let rotation = 0;
+  let pageNum = null;
   try {
     const cleaned = raw.replace(/^```json\s*|```$/g, '').trim();
     const parsed = JSON.parse(cleaned);
     type = DOC_TYPES.find(t => (parsed.tipo || '').toLowerCase().includes(t.toLowerCase()));
     competencia = parsed.competencia && parsed.competencia !== 'null' ? parsed.competencia : null;
-    const validRotations = [0, 90, 180, 270];
-    rotation = validRotations.includes(Number(parsed.rotacao)) ? Number(parsed.rotacao) : 0;
+
+    // a IA descreve a orientação em palavras (mais confiável do que ela
+    // mesma calcular o ângulo); aqui a gente converte pra grau exato
+    const orientationToRotation = {
+      correta: 0,
+      invertida: 180,
+      girada_horario: 270,
+      girada_antihorario: 90,
+    };
+    rotation = orientationToRotation[parsed.orientacao_atual] ?? 0;
+
+    const parsedPage = parseInt(parsed.pagina_atual, 10);
+    pageNum = Number.isFinite(parsedPage) ? parsedPage : null;
   } catch (err) {
     type = DOC_TYPES.find(t => raw.toLowerCase().includes(t.toLowerCase()));
   }
 
-  return { type: type || 'Outros', competencia, rotation };
+  return { type: type || 'Outros', competencia, rotation, pageNum };
 }
 
 function base64ToBytes(base64) {
@@ -342,10 +786,14 @@ async function buildPdfsByType() {
     groups[t].push(doc);
   });
 
-  // dentro de cada tipo, ordena por data extraída (mais antiga primeiro);
-  // documentos sem data identificada ficam no fim, na ordem que foram enviados
+  // dentro de cada tipo: primeiro por número de página (quando identificado —
+  // resolve o caso de mandar a página 2 antes da página 1), depois por data de
+  // competência, e por último mantém a ordem de envio
   Object.keys(groups).forEach(type => {
     groups[type].sort((a, b) => {
+      if (a.pageNum != null && b.pageNum != null) return a.pageNum - b.pageNum;
+      if (a.pageNum != null) return -1;
+      if (b.pageNum != null) return 1;
       if (a.competencia && b.competencia) return a.competencia.localeCompare(b.competencia);
       if (a.competencia) return -1;
       if (b.competencia) return 1;
@@ -444,9 +892,17 @@ async function sendAll() {
   try {
     await classifyAll();
   } catch (err) {
-    sendNote.textContent = err.message === 'Link inválido'
-      ? 'Esse link não é mais válido. Peça um novo ao seu advogado.'
-      : 'O limite de documentos por hoje foi atingido. Tenta novamente amanhã ou fala com seu advogado.';
+    if (err.message === 'Teste grátis esgotado') {
+      document.getElementById('upgradeCard').style.display = 'block';
+      document.getElementById('upgradeCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      sendNote.textContent = '';
+      generateBtn.disabled = true;
+      return;
+    } else if (err.message === 'Link inválido') {
+      sendNote.textContent = 'Esse link não é mais válido. Peça um novo ao seu advogado.';
+    } else {
+      sendNote.textContent = 'O limite de documentos por hoje foi atingido. Tenta novamente amanhã ou fala com seu advogado.';
+    }
     generateBtn.disabled = false;
     return;
   }
