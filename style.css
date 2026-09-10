@@ -26,10 +26,9 @@ body {
   font-family: 'Inter', sans-serif;
   font-size: 15px;
   line-height: 1.6;
-  padding: 40px 24px 80px;
 }
 
-.wrap { max-width: 760px; margin: 0 auto; }
+.wrap { max-width: 760px; margin: 0 auto; padding: 40px 24px 80px; }
 
 header { margin-bottom: 32px; }
 

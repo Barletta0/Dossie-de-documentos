@@ -183,7 +183,7 @@
     font-size: 28px;
     margin: 0 0 8px;
   }
-  .steps-section .sub { color: var(--ink-soft); margin: 0 0 40px; }
+  .steps-section .sub { color: var(--ink-soft); margin: 0 auto 40px; max-width: none; }
   .steps-cards {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -242,7 +242,7 @@
   /* pricing */
   .pricing-section { padding: 0 0 64px; text-align: center; }
   .pricing-section h2 { font-family: 'Poppins', sans-serif; font-size: 28px; margin: 0 0 8px; }
-  .pricing-section .sub { color: var(--ink-soft); margin: 0 0 36px; }
+  .pricing-section .sub { color: var(--ink-soft); margin: 0 auto 36px; max-width: none; }
   .price-card {
     background: var(--bg);
     border-radius: 28px;
@@ -344,7 +344,7 @@
           <div class="browser-body">
             <div class="mock-row"><span class="mock-dot"></span> identificacao.png → RG_Maria.pdf <span class="mock-tag">RG</span></div>
             <div class="mock-row"><span class="mock-dot"></span> recibo_marco.png → Comprovante_Marco.pdf <span class="mock-tag">Comprovante</span></div>
-            <div class="mock-row"><span class="mock-dot"></span> comprovante.png → Comprovante_Maria.pdf <span class="mock-tag">Comprovante</span></div>
+            <div class="mock-row"><span class="mock-dot"></span> comprovante.png → Pablo_Holerite.pdf <span class="mock-tag">Comprovante</span></div>
             <div class="mock-upload">Solte novos documentos aqui</div>
           </div>
         </div>
@@ -390,25 +390,25 @@
     <h2>Depois do teste</h2>
     <p class="sub">Um plano só, sem pegadinha</p>
     <div class="price-card">
-      <div class="plan-tag">PLANO ÚNICO</div>
+      <div class="plan-tag">PLANO ÚNICO (mais planos em breve)</div>
       <div class="amount">R$ 39,90<span>/mês</span></div>
       <ul>
-        <li><span class="check">✓</span> 60 documentos por dia</li>
+        <li><span class="check">✓</span> Documentos ilimitados</li>
         <li><span class="check">✓</span> Classificação automática por IA</li>
         <li><span class="check">✓</span> PDFs organizados no seu e-mail</li>
         <li><span class="check">✓</span> Link único, sem limite de clientes</li>
       </ul>
       <div class="pix-box">
         <div class="label">Pagamento via PIX</div>
-        <div class="key">chave-pix-a-definir@exemplo.com</div>
+        <div class="key">(12) 99130-8362 — Pablo / Nubank</div>
         <div class="instructions">Depois de pagar, manda o comprovante pro WhatsApp — a liberação é manual até novembro. A partir de novembro, cartão e liberação automática entram no ar.</div>
       </div>
     </div>
-    <p class="faq-note"><b>Tem limite de documentos?</b> Até 60 por dia — bem acima do uso normal de um escritório. Precisando de mais, é só falar com a gente.</p>
+    <p class="faq-note"><b>Tem limite de documentos?</b> Não — caso o total ultrapasse o limite de anexo do e-mail, você recebe um link com tudo organizado pra baixar, em vez do anexo direto.</p>
   </section>
 </div>
 
-<footer class="page-footer">DOSSIÊDOC — feito para escritórios de advocacia</footer>
+<footer class="page-footer">DOSSIÊDOC — organize documentos de qualquer cliente</footer>
 
 </div>
 
@@ -417,7 +417,7 @@
 
   <div id="invalidState" class="state-message" style="display:none">
     <h2>Link inválido</h2>
-    <p>Esse link não é válido ou expirou. Peça um novo link ao seu advogado.</p>
+    <p>Esse link não é válido ou expirou. Peça um novo link a quem te mandou.</p>
   </div>
 
   <div id="loadingState" class="state-message" style="display:none">
@@ -428,7 +428,7 @@
     <header>
       <div class="kicker" id="kicker">Envio de documentos</div>
       <h1>Coloque seus documentos aqui</h1>
-      <p class="sub">Sobe as fotos dos seus documentos. A gente organiza por tipo e manda direto pro seu advogado.</p>
+      <p class="sub">Sobe as fotos dos seus documentos. A gente organiza por tipo e manda direto pra quem te enviou o link.</p>
     </header>
 
     <div class="card">
@@ -457,17 +457,17 @@
       <p class="step-title">Seu teste grátis acabou</p>
       <p class="note">Os 3 documentos grátis dessa conta já foram usados. Pra continuar, assina o plano abaixo.</p>
       <div class="price-card" style="max-width:none; margin-top:16px;">
-        <div class="plan-tag">PLANO ÚNICO</div>
+        <div class="plan-tag">PLANO ÚNICO (mais planos em breve)</div>
         <div class="amount">R$ 39,90<span>/mês</span></div>
         <ul>
-          <li><span class="check">✓</span> 60 documentos por dia</li>
+          <li><span class="check">✓</span> Documentos ilimitados</li>
           <li><span class="check">✓</span> Classificação automática por IA</li>
           <li><span class="check">✓</span> PDFs organizados no seu e-mail</li>
           <li><span class="check">✓</span> Link único, sem limite de clientes</li>
         </ul>
         <div class="pix-box">
           <div class="label">Pagamento via PIX</div>
-          <div class="key">chave-pix-a-definir@exemplo.com</div>
+          <div class="key">(12) 99130-8362 — Pablo / Nubank</div>
           <div class="instructions">Depois de pagar, manda o comprovante pro WhatsApp — a liberação é manual até novembro. Assim que confirmarmos, seu link libera automaticamente.</div>
         </div>
       </div>
@@ -486,6 +486,12 @@ const DOC_TYPES = [
 ];
 
 const token = new URLSearchParams(window.location.search).get('token');
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
 
 let docs = []; // {id, file, dataUrl, base64, mediaType, status, type}
 let idCounter = 0;
@@ -569,7 +575,7 @@ function handleFiles(fileList) {
         .then(({ dataUrl, base64, mediaType }) => addDoc(file, dataUrl, base64, mediaType, false))
         .catch(err => {
           console.error('Erro ao normalizar imagem', file.name, err);
-          errorArea.innerHTML = '<div class="error-banner">Não consegui processar "' + file.name + '". Tenta enviar de novo.</div>';
+          errorArea.innerHTML = '<div class="error-banner">Não consegui processar "' + escapeHtml(file.name) + '". Tenta enviar de novo.</div>';
         });
     }
   });
@@ -943,7 +949,7 @@ async function sendAll() {
     stoppedReason = await classifyAll();
   } catch (err) {
     // só "Link inválido" chega aqui — sem token válido não tem pra onde mandar nada
-    sendNote.textContent = 'Esse link não é mais válido. Peça um novo ao seu advogado.';
+    sendNote.textContent = 'Esse link não é mais válido. Peça um novo a quem te mandou.';
     generateBtn.disabled = false;
     return;
   }
@@ -957,7 +963,7 @@ async function sendAll() {
       document.getElementById('upgradeCard').style.display = 'block';
       document.getElementById('upgradeCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
     } else if (stoppedReason === 'Limite diário atingido') {
-      sendNote.textContent = 'O limite de documentos por hoje foi atingido. Tenta novamente amanhã ou fala com seu advogado.';
+      sendNote.textContent = 'O limite de documentos por hoje foi atingido. Tenta novamente amanhã ou fala com quem te mandou o link.';
     }
     generateBtn.disabled = false;
     return;
@@ -975,7 +981,7 @@ async function sendAll() {
   if (totalBytes > MAX_EMAIL_BYTES) {
     sendSucceeded = await sendViaStorageLink(clientName, filesPayload);
   } else {
-    sendNote.textContent = 'Enviando para o advogado…';
+    sendNote.textContent = 'Enviando…';
     try {
       const response = await fetch('/api/send-email', {
         method: 'POST',
@@ -989,7 +995,7 @@ async function sendAll() {
     } catch (err) {
       console.error('Send error', err);
       if (err.message === 'Link inválido') {
-        sendNote.textContent = 'Esse link não é mais válido. Peça um novo ao seu advogado.';
+        sendNote.textContent = 'Esse link não é mais válido. Peça um novo a quem te mandou.';
       } else {
         sendNote.textContent = 'O envio direto falhou, tentando um jeito alternativo…';
         sendSucceeded = await sendViaStorageLink(clientName, filesPayload);
@@ -1011,7 +1017,7 @@ async function sendAll() {
 }
 
 async function sendViaStorageLink(clientName, filesPayload) {
-  sendNote.textContent = 'Enviando um link de download pro seu advogado…';
+  sendNote.textContent = 'Enviando um link de download…';
   try {
     const response = await fetch('/api/upload-large', {
       method: 'POST',
@@ -1019,12 +1025,12 @@ async function sendViaStorageLink(clientName, filesPayload) {
       body: JSON.stringify({ clientName, files: filesPayload, token })
     });
     if (!response.ok) throw new Error('upload-large failed');
-    sendNote.textContent = 'Pronto! O arquivo era grande demais pra anexar direto, então mandamos um link de download pro seu advogado por e-mail — não precisa fazer mais nada.';
+    sendNote.textContent = 'Pronto! O arquivo era grande demais pra anexar direto, então mandamos um link de download por e-mail — não precisa fazer mais nada.';
     return true;
   } catch (err) {
     console.error('sendViaStorageLink error', err);
     const emailNote = lawyerEmail ? ` (${lawyerEmail})` : '';
-    sendNote.textContent = `Não deu pra enviar automaticamente de nenhum jeito. Baixa os arquivos abaixo e manda direto pro seu advogado${emailNote}.`;
+    sendNote.textContent = `Não deu pra enviar automaticamente de nenhum jeito. Baixa os arquivos abaixo e manda direto pra quem te enviou o link${emailNote}.`;
     return false;
   }
 }

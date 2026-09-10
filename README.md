@@ -111,6 +111,7 @@ Crie um repositório e suba a pasta inteira, incluindo a pasta `api`.
 | `SUPABASE_SERVICE_KEY` | chave `service_role` do Supabase |
 | `DAILY_LIMIT` | opcional — documentos por dia por advogado. Padrão: `60` |
 | `TRIAL_LIMIT` | opcional — documentos grátis antes de exigir pagamento. Padrão: `3` |
+| `CRON_SECRET` | recomendado — qualquer texto aleatório longo. Protege a limpeza automática do Storage (veja "Segurança e retenção de dados" abaixo) |
 
 ### 5. Deploy
 
@@ -141,6 +142,22 @@ Com `onboarding@resend.dev`, o Resend só entrega pro e-mail dono da conta Resen
 ## Sobre segurança do link
 
 O link de um advogado é reutilizável e não expira por padrão — evita vazamento de documento pro e-mail errado, mas um link pode circular além do cliente pretendido. Duas travas contêm o estrago: o limite diário (`DAILY_LIMIT`) e, pra quem não pagou, o teste de `TRIAL_LIMIT` documentos. Existe também suporte a link de uso único por cliente (tabela `client_links`, função `/api/generate-client-link`), pra quando fizer sentido gerar um link novo por atendimento em vez de reutilizar o mesmo sempre.
+
+## Segurança e retenção de dados
+
+O sistema lida com documento sensível (RG, CPF, holerite), então vale saber o que já está protegido e o que ainda depende de decisão sua:
+
+**Já implementado:**
+- Senhas guardadas com hash (bcrypt), nunca em texto puro.
+- Chaves de API (Anthropic, Resend, Supabase) ficam só no servidor — nunca chegam no navegador do cliente nem do advogado.
+- Consultas ao banco escapam qualquer valor vindo do usuário antes de montar a URL — sem brecha de injeção.
+- Texto controlado pelo usuário (nome de arquivo, por exemplo) é filtrado antes de aparecer na tela, pra evitar código malicioso rodando no navegador de quem usa.
+- **Limpeza automática do Storage**: os documentos que sobem pro plano B (lote grande demais pra e-mail) são apagados automaticamente depois de 7 dias — roda sozinho todo dia via Vercel Cron (`api/cleanup-storage.js` + `vercel.json`). Sem isso, documento sensível ficaria guardado pra sempre sem necessidade.
+
+**Ainda depende de você, fora do código:**
+- **Política de privacidade / LGPD**: ainda não existe uma página explicando pro advogado (e, por tabela, pro cliente dele) que documento sobe, onde fica, por quanto tempo, e quem tem acesso. Isso devia existir antes de divulgar pra qualquer pessoa fora da família.
+- **Verificação humana (CAPTCHA/Cloudflare Turnstile)**: discutido antes, ainda não implementado — protege contra bot/script abusando de um link vazado. O limite diário (`DAILY_LIMIT`) já contém o estrago, mas não impede a tentativa.
+- **Log de acesso e auditoria**: hoje não existe registro de "quem acessou o quê, quando" além da tabela `usage_events` (que só conta volume, não guarda o que foi enviado). Se precisar investigar um incidente específico no futuro, essa limitação vai aparecer.
 
 ## Próximos passos possíveis (não incluídos aqui)
 
