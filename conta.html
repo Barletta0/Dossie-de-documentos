@@ -155,7 +155,9 @@ async function init() {
             btn.textContent = 'Pagar R$39,90';
             return;
           }
-          window.location.href = data.checkoutUrl;
+          note.innerHTML = 'preference_id: <code>' + data.preferenceId + '</code><br>init_point: <code style="word-break:break-all;">' + data.checkoutUrl + '</code><br><a href="' + data.checkoutUrl + '" target="_blank" style="color:var(--blue); font-weight:600;">Clique aqui pra continuar o pagamento →</a>';
+          btn.disabled = false;
+          btn.textContent = 'Pagar R$39,90';
         } catch (err) {
           console.error('checkout error', err);
           note.textContent = 'Falha de rede: ' + err.message;

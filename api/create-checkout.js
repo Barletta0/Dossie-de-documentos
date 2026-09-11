@@ -54,7 +54,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'No checkout URL returned' });
     }
 
-    return res.status(200).json({ checkoutUrl });
+    return res.status(200).json({ checkoutUrl, preferenceId: preference.id });
   } catch (err) {
     console.error('create-checkout.js error:', err);
     return res.status(500).json({ error: 'Internal error' });
