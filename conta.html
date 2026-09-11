@@ -61,6 +61,12 @@
       </div>
       <p class="note">Depois de pagar, manda o comprovante pro WhatsApp — a liberação é manual até novembro.</p>
     </div>
+    <div class="card">
+      <p class="step-title">Ou assine o plano anual — R$ 399,00</p>
+      <p class="note">Equivale a R$33,25/mês, parcelado em até 12x no cartão. Pagamento e liberação automáticos — não precisa mandar comprovante.</p>
+      <button class="primary" id="annualBtn">Assinar plano anual</button>
+      <p class="note" id="annualNote"></p>
+    </div>
   </div>
 
 </div>
@@ -104,6 +110,27 @@ async function init() {
           e.target.textContent = 'Copiado!';
           setTimeout(() => { e.target.textContent = 'Copiar'; }, 1800);
         });
+      });
+      document.getElementById('annualBtn').addEventListener('click', async () => {
+        const btn = document.getElementById('annualBtn');
+        const note = document.getElementById('annualNote');
+        btn.disabled = true;
+        btn.textContent = 'Gerando pagamento…';
+        try {
+          const resp = await fetch('/api/create-checkout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token })
+          });
+          if (!resp.ok) throw new Error('falha');
+          const data = await resp.json();
+          window.location.href = data.checkoutUrl;
+        } catch (err) {
+          console.error('checkout error', err);
+          note.textContent = 'Não deu pra gerar o pagamento agora. Tenta de novo em instantes.';
+          btn.disabled = false;
+          btn.textContent = 'Assinar plano anual';
+        }
       });
     }
   } catch (err) {
