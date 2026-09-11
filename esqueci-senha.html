@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Esqueci minha senha — DossiêDoc</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="site-header-bar">
+  <a href="/" class="logo">dossiê<span class="doc">doc</span></a>
+  <a href="/" class="home-link">Página inicial</a>
+</div>
+<div class="wrap">
+
+  <header>
+    <div class="kicker">Dossiê de Documentos</div>
+    <h1>Esqueci minha senha</h1>
+    <p class="sub">Digita o e-mail da sua conta — se ele existir, você recebe um link pra criar uma senha nova.</p>
+  </header>
+
+  <div class="card" id="formCard">
+    <label class="field-label" for="email">Seu e-mail</label>
+    <input type="email" id="email" placeholder="voce@email.com">
+    <div id="errorArea"></div>
+    <button class="primary" id="sendBtn">Enviar link de redefinição</button>
+    <p class="note"><a href="/login.html">Voltar pro login</a></p>
+  </div>
+
+  <div class="card" id="doneCard" style="display:none">
+    <p class="step-title">Confere seu e-mail</p>
+    <p class="note">Se esse e-mail tiver uma conta, um link pra redefinir a senha chega em alguns instantes. O link vale por 1 hora.</p>
+    <p class="note"><a href="/login.html">Voltar pro login</a></p>
+  </div>
+
+</div>
+
+<script>
+const sendBtn = document.getElementById('sendBtn');
+const errorArea = document.getElementById('errorArea');
+
+sendBtn.addEventListener('click', requestReset);
+document.getElementById('formCard').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    requestReset();
+  }
+});
+
+async function requestReset() {
+  const email = document.getElementById('email').value.trim();
+  errorArea.innerHTML = '';
+
+  if (!email) {
+    errorArea.innerHTML = '<div class="error-banner">Preenche o e-mail antes de continuar.</div>';
+    return;
+  }
+
+  sendBtn.disabled = true;
+  sendBtn.textContent = 'Enviando…';
+
+  try {
+    const resp = await fetch('/api/request-password-reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    if (!resp.ok) throw new Error('falha');
+
+    document.getElementById('formCard').style.display = 'none';
+    document.getElementById('doneCard').style.display = 'block';
+  } catch (err) {
+    console.error('request reset error', err);
+    errorArea.innerHTML = '<div class="error-banner">Não deu pra enviar agora. Tenta de novo em instantes.</div>';
+    sendBtn.disabled = false;
+    sendBtn.textContent = 'Enviar link de redefinição';
+  }
+}
+</script>
+</body>
+</html>

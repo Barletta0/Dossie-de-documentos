@@ -336,7 +336,7 @@
       <a href="#como-funciona">Como funciona</a>
       <a href="#precos">Preços</a>
     </nav>
-    <button class="btn-login" onclick="goToAccountOrLogin()">Entrar</button>
+    <button class="btn-login" id="entrarBtn" onclick="goToAccountOrLogin()">Entrar</button>
   </header>
 </div>
 
@@ -498,6 +498,24 @@ function goToAccountOrLogin() {
     window.location.href = '/login.html';
   }
 }
+
+// se já tem login salvo, troca "Entrar" pelo nome da pessoa, pra ela saber
+// que já está logada sem precisar clicar pra descobrir
+(async function checkLoggedInName() {
+  const savedToken = localStorage.getItem('dossiedoc_token');
+  if (!savedToken) return;
+  try {
+    const resp = await fetch('/api/lawyer-info?token=' + encodeURIComponent(savedToken));
+    if (!resp.ok) return; // token salvo não é mais válido — deixa "Entrar" como está
+    const data = await resp.json();
+    const entrarBtn = document.getElementById('entrarBtn');
+    if (entrarBtn && data.name) {
+      entrarBtn.textContent = data.name.split(' ')[0];
+    }
+  } catch (err) {
+    console.error('checkLoggedInName error', err);
+  }
+})();
 document.getElementById('goToAccountBtn').addEventListener('click', () => {
   window.location.href = '/conta.html?token=' + encodeURIComponent(token);
 });

@@ -90,16 +90,50 @@ init();
 
 async function init() {
   if (!token) return showInvalid();
-  try {
-    const response = await fetch('/api/lawyer-info?token=' + encodeURIComponent(token));
-    if (!response.ok) {
-      // token salvo não é mais válido — limpa, pra não ficar preso num login morto
-      localStorage.removeItem('dossiedoc_token');
-      return showInvalid();
-    }
-    localStorage.setItem('dossiedoc_token', token);
-    const data = await response.json();
 
+  const returnedFromPayment = ['approved', 'success'].includes(
+    new URLSearchParams(window.location.search).get('status') ||
+    new URLSearchParams(window.location.search).get('collection_status') || ''
+  );
+
+  let data;
+  try {
+    data = await fetchAccountData();
+    if (!data) return showInvalid();
+  } catch (err) {
+    console.error('init error', err);
+    return showInvalid();
+  }
+
+  // se acabou de voltar de um pagamento aprovado mas o webhook ainda não
+  // processou, espera um pouco e confere de novo antes de mostrar "ainda em teste"
+  if (returnedFromPayment && !data.paid) {
+    loadingState.querySelector('p').textContent = 'Confirmando seu pagamento…';
+    for (let i = 0; i < 5 && !data.paid; i++) {
+      await new Promise(r => setTimeout(r, 2000));
+      try {
+        data = await fetchAccountData();
+      } catch (err) {
+        break;
+      }
+    }
+  }
+
+  render(data);
+}
+
+async function fetchAccountData() {
+  const response = await fetch('/api/lawyer-info?token=' + encodeURIComponent(token));
+  if (!response.ok) {
+    localStorage.removeItem('dossiedoc_token');
+    return null;
+  }
+  localStorage.setItem('dossiedoc_token', token);
+  return response.json();
+}
+
+function render(data) {
+  try {
     loadingState.style.display = 'none';
     if (data.paid) {
       document.getElementById('paidGreeting').textContent = 'Assinatura ativa, ' + (data.name || '') ;

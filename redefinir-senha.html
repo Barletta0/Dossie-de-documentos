@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Redefinir senha — DossiêDoc</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="site-header-bar">
+  <a href="/" class="logo">dossiê<span class="doc">doc</span></a>
+  <a href="/" class="home-link">Página inicial</a>
+</div>
+<div class="wrap">
+
+  <header>
+    <div class="kicker">Dossiê de Documentos</div>
+    <h1>Criar senha nova</h1>
+    <p class="sub">Escolhe uma senha nova pra sua conta.</p>
+  </header>
+
+  <div class="card" id="formCard">
+    <label class="field-label" for="password">Senha nova</label>
+    <input type="password" id="password" placeholder="Mínimo 6 caracteres">
+    <label class="field-label" for="passwordConfirm" style="margin-top:14px">Confirme a senha nova</label>
+    <input type="password" id="passwordConfirm" placeholder="Repita a senha">
+    <div id="errorArea"></div>
+    <button class="primary" id="resetBtn">Salvar nova senha</button>
+  </div>
+
+  <div class="card" id="doneCard" style="display:none">
+    <p class="step-title">Senha alterada</p>
+    <p class="note">Pode entrar agora com a senha nova.</p>
+    <button class="primary" onclick="location.href='/login.html'">Ir para o login</button>
+  </div>
+
+</div>
+
+<script>
+const token = new URLSearchParams(window.location.search).get('token');
+const resetBtn = document.getElementById('resetBtn');
+const errorArea = document.getElementById('errorArea');
+
+if (!token) {
+  document.getElementById('formCard').innerHTML = '<div class="error-banner">Link inválido. Pede um novo em <a href="/esqueci-senha.html">Esqueci minha senha</a>.</div>';
+}
+
+resetBtn.addEventListener('click', resetPassword);
+document.getElementById('formCard').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    resetPassword();
+  }
+});
+
+async function resetPassword() {
+  const password = document.getElementById('password').value;
+  const passwordConfirm = document.getElementById('passwordConfirm').value;
+  errorArea.innerHTML = '';
+
+  if (!password || !passwordConfirm) {
+    errorArea.innerHTML = '<div class="error-banner">Preenche os dois campos.</div>';
+    return;
+  }
+  if (password.length < 6) {
+    errorArea.innerHTML = '<div class="error-banner">A senha precisa ter pelo menos 6 caracteres.</div>';
+    return;
+  }
+  if (password !== passwordConfirm) {
+    errorArea.innerHTML = '<div class="error-banner">As duas senhas são diferentes. Confere e tenta de novo.</div>';
+    return;
+  }
+
+  resetBtn.disabled = true;
+  resetBtn.textContent = 'Salvando…';
+
+  try {
+    const resp = await fetch('/api/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, password })
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      errorArea.innerHTML = '<div class="error-banner">' + (data.error || 'Não deu pra salvar.') + '</div>';
+      resetBtn.disabled = false;
+      resetBtn.textContent = 'Salvar nova senha';
+      return;
+    }
+    document.getElementById('formCard').style.display = 'none';
+    document.getElementById('doneCard').style.display = 'block';
+  } catch (err) {
+    console.error('reset password error', err);
+    errorArea.innerHTML = '<div class="error-banner">Não deu pra salvar agora. Tenta de novo em instantes.</div>';
+    resetBtn.disabled = false;
+    resetBtn.textContent = 'Salvar nova senha';
+  }
+}
+</script>
+</body>
+</html>
