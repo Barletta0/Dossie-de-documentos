@@ -54,15 +54,16 @@
     </div>
     <div class="card">
       <p class="step-title">Assinar mensal — R$ 39,90/mês</p>
-      <p class="note">Documentos ilimitados, sem limite de clientes. Cobrança automática todo mês, cancela quando quiser.</p>
-      <button class="primary" id="monthlyBtn">Assinar plano mensal</button>
-      <p class="note" id="monthlyNote"></p>
+      <p class="note">Documentos ilimitados, sem limite de clientes.</p>
+      <div class="link-box">
+        <code>(12) 99130-8362 — Pablo / Nubank</code>
+        <button class="copy-btn" id="copyPixBtn">Copiar</button>
+      </div>
+      <p class="note">Depois de pagar, manda o comprovante pro WhatsApp — a liberação é manual por enquanto.</p>
     </div>
     <div class="card">
       <p class="step-title">Ou assine o plano anual — R$ 399,00</p>
-      <p class="note">Equivale a R$33,25/mês, parcelado em até 12x no cartão. Pagamento e liberação automáticos.</p>
-      <button class="primary" id="annualBtn">Assinar plano anual</button>
-      <p class="note" id="annualNote"></p>
+      <p class="note">Equivale a R$33,25/mês, parcelado em até 12x no cartão. Fala com quem te enviou o link sobre esse plano — o pagamento automático está temporariamente indisponível.</p>
     </div>
   </div>
 
@@ -102,63 +103,11 @@ async function init() {
       document.getElementById('testBtn').addEventListener('click', () => {
         window.location.href = '/?token=' + encodeURIComponent(token) + '&preview=1';
       });
-      document.getElementById('monthlyBtn').addEventListener('click', async () => {
-        const btn = document.getElementById('monthlyBtn');
-        const note = document.getElementById('monthlyNote');
-        btn.disabled = true;
-        btn.textContent = 'Gerando pagamento…';
-        try {
-          const resp = await fetch('/api/create-checkout-mensal', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token })
-          });
-          const rawText = await resp.text();
-          let data;
-          try {
-            data = JSON.parse(rawText);
-          } catch (parseErr) {
-            console.error('Resposta não era JSON:', rawText);
-            note.textContent = 'Erro (status ' + resp.status + '): ' + rawText.slice(0, 300);
-            btn.disabled = false;
-            btn.textContent = 'Assinar plano mensal';
-            return;
-          }
-          if (!resp.ok) {
-            console.error('checkout mensal error detail', data.detail);
-            note.textContent = 'Erro: ' + (data.detail || data.error || 'desconhecido');
-            btn.disabled = false;
-            btn.textContent = 'Assinar plano mensal';
-            return;
-          }
-          window.location.href = data.checkoutUrl;
-        } catch (err) {
-          console.error('checkout mensal error', err);
-          note.textContent = 'Falha de rede: ' + err.message;
-          btn.disabled = false;
-          btn.textContent = 'Assinar plano mensal';
-        }
-      });
-      document.getElementById('annualBtn').addEventListener('click', async () => {
-        const btn = document.getElementById('annualBtn');
-        const note = document.getElementById('annualNote');
-        btn.disabled = true;
-        btn.textContent = 'Gerando pagamento…';
-        try {
-          const resp = await fetch('/api/create-checkout', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token })
-          });
-          if (!resp.ok) throw new Error('falha');
-          const data = await resp.json();
-          window.location.href = data.checkoutUrl;
-        } catch (err) {
-          console.error('checkout error', err);
-          note.textContent = 'Não deu pra gerar o pagamento agora. Tenta de novo em instantes.';
-          btn.disabled = false;
-          btn.textContent = 'Assinar plano anual';
-        }
+      document.getElementById('copyPixBtn').addEventListener('click', (e) => {
+        navigator.clipboard.writeText('(12) 99130-8362 — Pablo / Nubank').then(() => {
+          e.target.textContent = 'Copiado!';
+          setTimeout(() => { e.target.textContent = 'Copiar'; }, 1800);
+        });
       });
     }
   } catch (err) {

@@ -402,28 +402,33 @@
     <p class="sub">Mensal ou anual, você escolhe</p>
     <div class="price-cards-grid">
       <div class="price-card">
-        <div class="plan-tag">MENSAL — PAGAMENTO AUTOMÁTICO</div>
+        <div class="plan-tag">MENSAL</div>
         <div class="amount">R$ 39,90<span>/mês</span></div>
         <ul>
           <li><span class="check">✓</span> Documentos ilimitados</li>
           <li><span class="check">✓</span> Classificação automática por IA</li>
           <li><span class="check">✓</span> PDFs organizados no seu e-mail</li>
-          <li><span class="check">✓</span> Cobrança automática, cancela quando quiser</li>
+          <li><span class="check">✓</span> Link único, sem limite de clientes</li>
         </ul>
-        <p style="margin-top:16px; font-size:12px; color:var(--ink-soft);">Crie sua conta pra assinar — o pagamento é feito depois do teste grátis, direto na sua área de conta.</p>
-        <button class="btn-primary" style="width:100%; margin-top:12px; border-radius:14px;" onclick="location.href='/cadastro.html'">Criar conta e assinar</button>
+        <div class="pix-box">
+          <div class="label">Pagamento via PIX</div>
+          <div class="key">(12) 99130-8362 — Pablo / Nubank</div>
+          <div class="instructions">Depois de pagar, manda o comprovante pro WhatsApp — a liberação é manual por enquanto.</div>
+        </div>
       </div>
       <div class="price-card">
-        <div class="plan-tag">ANUAL — PAGAMENTO AUTOMÁTICO</div>
+        <div class="plan-tag">ANUAL</div>
         <div class="amount">R$ 399<span>/ano</span></div>
         <ul>
           <li><span class="check">✓</span> Equivale a R$33,25/mês</li>
           <li><span class="check">✓</span> Parcelado em até 12x no cartão</li>
-          <li><span class="check">✓</span> Pagamento e liberação automáticos</li>
           <li><span class="check">✓</span> Mesmos benefícios do plano mensal</li>
         </ul>
-        <p class="instructions" style="margin-top:16px;">Crie sua conta pra assinar — o pagamento é feito depois do teste grátis, direto na sua área de conta.</p>
-        <button class="btn-primary" style="width:100%; margin-top:12px; border-radius:14px;" onclick="location.href='/cadastro.html'">Criar conta e assinar</button>
+        <div class="pix-box">
+          <div class="label">Pagamento via PIX</div>
+          <div class="key">(12) 99130-8362 — Pablo / Nubank</div>
+          <div class="instructions">Depois de pagar, manda o comprovante pro WhatsApp — a liberação é manual por enquanto.</div>
+        </div>
       </div>
     </div>
     <p class="faq-note"><b>Tem limite de documentos?</b> Não — caso o total ultrapasse o limite de anexo do e-mail, você recebe um link com tudo organizado pra baixar, em vez do anexo direto.</p>
@@ -485,12 +490,8 @@
 
     <div class="card" id="upgradeCard" style="display:none">
       <p class="step-title">Seu teste grátis acabou</p>
-      <p class="note">Os 3 documentos grátis dessa conta já foram usados. Assina abaixo pra continuar sem limite.</p>
-      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
-        <button class="primary" id="upgradeMonthlyBtn" style="margin-top:0;">Assinar mensal — R$39,90</button>
-        <button class="primary" id="upgradeAnnualBtn" style="margin-top:0; background:var(--green);">Assinar anual — R$399</button>
-      </div>
-      <p class="note" id="upgradeNote"></p>
+      <p class="note">Os 3 documentos grátis dessa conta já foram usados. Pra continuar, vai na sua área de conta pra ver as opções de pagamento.</p>
+      <button class="primary" id="goToAccountBtn" style="margin-top:14px;">Ir pra minha conta</button>
     </div>
   </div>
 
@@ -506,43 +507,9 @@ const DOC_TYPES = [
 ];
 
 const token = new URLSearchParams(window.location.search).get('token');
-
-document.getElementById('upgradeMonthlyBtn').addEventListener('click', () => startCheckout('mensal'));
-document.getElementById('upgradeAnnualBtn').addEventListener('click', () => startCheckout('anual'));
-
-async function startCheckout(planType) {
-  const btn = document.getElementById(planType === 'mensal' ? 'upgradeMonthlyBtn' : 'upgradeAnnualBtn');
-  const note = document.getElementById('upgradeNote');
-  const endpoint = planType === 'mensal' ? '/api/create-checkout-mensal' : '/api/create-checkout';
-  btn.disabled = true;
-  note.textContent = 'Gerando pagamento…';
-  try {
-    const resp = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token })
-    });
-    const rawText = await resp.text();
-    let data;
-    try {
-      data = JSON.parse(rawText);
-    } catch (parseErr) {
-      note.textContent = 'Erro (status ' + resp.status + '): ' + rawText.slice(0, 300);
-      btn.disabled = false;
-      return;
-    }
-    if (!resp.ok) {
-      note.textContent = 'Erro: ' + (data.detail || data.error || 'desconhecido');
-      btn.disabled = false;
-      return;
-    }
-    window.location.href = data.checkoutUrl;
-  } catch (err) {
-    console.error('checkout error', err);
-    note.textContent = 'Falha de rede: ' + err.message;
-    btn.disabled = false;
-  }
-}
+document.getElementById('goToAccountBtn').addEventListener('click', () => {
+  window.location.href = '/conta.html?token=' + encodeURIComponent(token);
+});
 const isPreview = new URLSearchParams(window.location.search).get('preview') === '1';
 
 function escapeHtml(str) {
