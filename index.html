@@ -485,8 +485,12 @@
 
     <div class="card" id="upgradeCard" style="display:none">
       <p class="step-title">Seu teste grátis acabou</p>
-      <p class="note">Os 3 documentos grátis dessa conta já foram usados. Pra continuar sem limite (mensal ou anual, pagamento automático), vai na sua área de conta.</p>
-      <button class="primary" id="goToAccountBtn">Ir pra minha conta</button>
+      <p class="note">Os 3 documentos grátis dessa conta já foram usados. Assina abaixo pra continuar sem limite.</p>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
+        <button class="primary" id="upgradeMonthlyBtn" style="margin-top:0;">Assinar mensal — R$39,90</button>
+        <button class="primary" id="upgradeAnnualBtn" style="margin-top:0; background:var(--green);">Assinar anual — R$399</button>
+      </div>
+      <p class="note" id="upgradeNote"></p>
     </div>
   </div>
 
@@ -502,9 +506,43 @@ const DOC_TYPES = [
 ];
 
 const token = new URLSearchParams(window.location.search).get('token');
-document.getElementById('goToAccountBtn').addEventListener('click', () => {
-  window.location.href = '/conta.html?token=' + encodeURIComponent(token);
-});
+
+document.getElementById('upgradeMonthlyBtn').addEventListener('click', () => startCheckout('mensal'));
+document.getElementById('upgradeAnnualBtn').addEventListener('click', () => startCheckout('anual'));
+
+async function startCheckout(planType) {
+  const btn = document.getElementById(planType === 'mensal' ? 'upgradeMonthlyBtn' : 'upgradeAnnualBtn');
+  const note = document.getElementById('upgradeNote');
+  const endpoint = planType === 'mensal' ? '/api/create-checkout-mensal' : '/api/create-checkout';
+  btn.disabled = true;
+  note.textContent = 'Gerando pagamento…';
+  try {
+    const resp = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token })
+    });
+    const rawText = await resp.text();
+    let data;
+    try {
+      data = JSON.parse(rawText);
+    } catch (parseErr) {
+      note.textContent = 'Erro (status ' + resp.status + '): ' + rawText.slice(0, 300);
+      btn.disabled = false;
+      return;
+    }
+    if (!resp.ok) {
+      note.textContent = 'Erro: ' + (data.detail || data.error || 'desconhecido');
+      btn.disabled = false;
+      return;
+    }
+    window.location.href = data.checkoutUrl;
+  } catch (err) {
+    console.error('checkout error', err);
+    note.textContent = 'Falha de rede: ' + err.message;
+    btn.disabled = false;
+  }
+}
 const isPreview = new URLSearchParams(window.location.search).get('preview') === '1';
 
 function escapeHtml(str) {
