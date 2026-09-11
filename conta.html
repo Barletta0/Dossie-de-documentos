@@ -36,11 +36,13 @@
       <p class="sub" id="paidUntilNote">Esse é o seu link definitivo — manda pros seus clientes. Cada um coloca o próprio nome ao enviar os documentos.</p>
     </header>
     <div class="card">
-      <p class="step-title">Seu link para clientes</p>
+      <p class="step-title">Link para enviar ao seu cliente</p>
+      <p class="note">Esse link não é pra você usar — é pra <strong>mandar pro cliente</strong> (WhatsApp, e-mail, etc). É ele quem vai abrir e subir os documentos dele.</p>
       <div class="link-box">
         <code id="clientLink"></code>
         <button class="copy-btn" id="copyBtn">Copiar</button>
       </div>
+      <a id="whatsappShareBtn" href="#" target="_blank" class="copy-btn" style="display:inline-block; margin-top:10px; text-decoration:none; background:#25D366;">Mandar no WhatsApp</a>
     </div>
     <div class="card">
       <p class="step-title">Renovar antes do vencimento</p>
@@ -58,7 +60,7 @@
     </header>
     <div class="card" id="continueTestCard">
       <p class="step-title">Continuar testando</p>
-      <p class="note">Use seus próprios documentos pra ver a classificação funcionando.</p>
+      <p class="note">Use seus próprios documentos pra ver a classificação funcionando. Esse teste é só pra você — depois de assinar, você recebe um link fixo pra mandar aos seus clientes (não pra você usar).</p>
       <button class="primary" id="testBtn">Ir para o teste</button>
     </div>
     <div class="card">
@@ -107,6 +109,9 @@ async function init() {
         document.getElementById('paidUntilNote').textContent = 'Válido até ' + formatted + '. Esse é o seu link definitivo — manda pros seus clientes.';
       }
       document.getElementById('clientLink').textContent = window.location.origin + '/?token=' + token;
+      const shareLink = window.location.origin + '/?token=' + token;
+      const shareText = encodeURIComponent('Oi! Pra eu organizar seus documentos, envia as fotos ou PDFs por esse link: ' + shareLink);
+      document.getElementById('whatsappShareBtn').href = 'https://wa.me/?text=' + shareText;
       paidState.style.display = 'block';
       document.getElementById('copyBtn').addEventListener('click', () => {
         navigator.clipboard.writeText(document.getElementById('clientLink').textContent).then(() => {
@@ -173,9 +178,7 @@ async function init() {
             btn.textContent = 'Pagar R$39,90';
             return;
           }
-          note.innerHTML = 'preference_id: <code>' + data.preferenceId + '</code><br>init_point: <code style="word-break:break-all;">' + data.checkoutUrl + '</code><br><a href="' + data.checkoutUrl + '" target="_blank" style="color:var(--blue); font-weight:600;">Clique aqui pra continuar o pagamento →</a>';
-          btn.disabled = false;
-          btn.textContent = 'Pagar R$39,90';
+          window.location.href = data.checkoutUrl;
         } catch (err) {
           console.error('checkout error', err);
           note.textContent = 'Falha de rede: ' + err.message;
