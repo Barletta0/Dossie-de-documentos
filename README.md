@@ -11,7 +11,7 @@ Cada foto é redimensionada (máximo 1800px no lado maior) e comprimida antes de
 - **`/login.html`** — advogado entra com e-mail/senha.
 - **`/conta.html`** — depois do login: se ainda não pago, mostra o teste e o PIX; se já pago, mostra o link definitivo pra mandar aos clientes.
 
-Cada advogado tem um token único. Um segundo tipo de link, de uso único por cliente, também existe (gerado via `/api/generate-client-link`, ainda sem tela própria) — os dois tipos de token funcionam nos mesmos lugares.
+Cada advogado tem um token único.
 
 ## Teste grátis e liberação de pagamento
 
@@ -143,7 +143,7 @@ Com `onboarding@resend.dev`, o Resend só entrega pro e-mail dono da conta Resen
 
 ## Sobre segurança do link
 
-O link de um advogado é reutilizável e não expira por padrão — evita vazamento de documento pro e-mail errado, mas um link pode circular além do cliente pretendido. Duas travas contêm o estrago: o limite diário (`DAILY_LIMIT`) e, pra quem não pagou, o teste de `TRIAL_LIMIT` documentos. Existe também suporte a link de uso único por cliente (tabela `client_links`, função `/api/generate-client-link`), pra quando fizer sentido gerar um link novo por atendimento em vez de reutilizar o mesmo sempre.
+O link de um advogado é reutilizável e não expira por padrão — evita vazamento de documento pro e-mail errado, mas um link pode circular além do cliente pretendido. Duas travas contêm o estrago: o limite diário (`DAILY_LIMIT`) e, pra quem não pagou, o teste de `TRIAL_LIMIT` documentos. A tabela `client_links` (pra link de uso único por cliente) continua no banco, mas a função que a alimentava foi removida por causa do limite de 12 funções do plano grátis do Vercel — pode ser reconstruída no futuro se fizer sentido.
 
 ## Pagamento automático (mensal, pagamento único por período)
 
