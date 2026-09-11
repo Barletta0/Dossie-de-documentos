@@ -336,7 +336,7 @@
       <a href="#como-funciona">Como funciona</a>
       <a href="#precos">Preços</a>
     </nav>
-    <button class="btn-login" onclick="location.href='/login.html'">Entrar</button>
+    <button class="btn-login" onclick="goToAccountOrLogin()">Entrar</button>
   </header>
 </div>
 
@@ -489,6 +489,15 @@ const DOC_TYPES = [
 ];
 
 const token = new URLSearchParams(window.location.search).get('token');
+
+function goToAccountOrLogin() {
+  const savedToken = localStorage.getItem('dossiedoc_token');
+  if (savedToken) {
+    window.location.href = '/conta.html?token=' + encodeURIComponent(savedToken);
+  } else {
+    window.location.href = '/login.html';
+  }
+}
 document.getElementById('goToAccountBtn').addEventListener('click', () => {
   window.location.href = '/conta.html?token=' + encodeURIComponent(token);
 });

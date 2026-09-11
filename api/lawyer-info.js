@@ -1,3 +1,5 @@
+const TRIAL_LIMIT = parseInt(process.env.TRIAL_LIMIT || '3', 10);
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -10,11 +12,28 @@ export default async function handler(req, res) {
     const resolved = await resolveToken(token);
     if (!resolved) return res.status(404).json({ error: 'Invalid token' });
 
-    return res.status(200).json({ name: resolved.name, email: resolved.email, paid: resolved.paid, paidUntil: resolved.paidUntil });
+    let trialExhausted = false;
+    if (!resolved.paid) {
+      const usageCount = await countUsageTotal(resolved.lawyerToken);
+      trialExhausted = usageCount >= TRIAL_LIMIT;
+    }
+
+    return res.status(200).json({
+      name: resolved.name,
+      email: resolved.email,
+      paid: resolved.paid,
+      paidUntil: resolved.paidUntil,
+      trialExhausted
+    });
   } catch (err) {
     console.error('lawyer-info.js error:', err);
     return res.status(500).json({ error: 'Internal error' });
   }
+}
+
+async function countUsageTotal(token) {
+  const rows = await supabaseGet(`usage_events?token=eq.${encodeURIComponent(token)}&select=id`);
+  return rows.length;
 }
 
 async function supabaseGet(path) {

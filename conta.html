@@ -12,7 +12,10 @@
 <body>
 <div class="site-header-bar">
   <a href="/" class="logo">dossiê<span class="doc">doc</span></a>
-  <a href="/" class="home-link">Página inicial</a>
+  <div style="display:flex; gap:18px; align-items:center;">
+    <a href="/" class="home-link">Página inicial</a>
+    <a href="#" class="home-link" id="logoutLink">Sair</a>
+  </div>
 </div>
 <div class="wrap">
 
@@ -53,7 +56,7 @@
       <h1 id="trialGreeting">Ainda em teste</h1>
       <p class="sub">Você ainda está no teste grátis de 3 documentos. Depois de assinar, essa página passa a mostrar seu link definitivo pra mandar aos clientes.</p>
     </header>
-    <div class="card">
+    <div class="card" id="continueTestCard">
       <p class="step-title">Continuar testando</p>
       <p class="note">Use seus próprios documentos pra ver a classificação funcionando.</p>
       <button class="primary" id="testBtn">Ir para o teste</button>
@@ -69,7 +72,13 @@
 </div>
 
 <script>
-const token = new URLSearchParams(window.location.search).get('token');
+const urlToken = new URLSearchParams(window.location.search).get('token');
+document.getElementById('logoutLink').addEventListener('click', (e) => {
+  e.preventDefault();
+  localStorage.removeItem('dossiedoc_token');
+  window.location.href = '/';
+});
+const token = urlToken || localStorage.getItem('dossiedoc_token');
 const loadingState = document.getElementById('loadingState');
 const invalidState = document.getElementById('invalidState');
 const paidState = document.getElementById('paidState');
@@ -81,7 +90,12 @@ async function init() {
   if (!token) return showInvalid();
   try {
     const response = await fetch('/api/lawyer-info?token=' + encodeURIComponent(token));
-    if (!response.ok) return showInvalid();
+    if (!response.ok) {
+      // token salvo não é mais válido — limpa, pra não ficar preso num login morto
+      localStorage.removeItem('dossiedoc_token');
+      return showInvalid();
+    }
+    localStorage.setItem('dossiedoc_token', token);
     const data = await response.json();
 
     loadingState.style.display = 'none';
@@ -125,6 +139,10 @@ async function init() {
     } else {
       document.getElementById('trialGreeting').textContent = 'Olá, ' + (data.name || '');
       trialState.style.display = 'block';
+      if (data.trialExhausted) {
+        document.getElementById('continueTestCard').style.display = 'none';
+        document.querySelector('#trialState .sub').textContent = 'Seu teste grátis de 3 documentos já acabou. Assina abaixo pra continuar.';
+      }
       document.getElementById('testBtn').addEventListener('click', () => {
         window.location.href = '/?token=' + encodeURIComponent(token) + '&preview=1';
       });
