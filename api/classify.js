@@ -47,7 +47,7 @@ export default async function handler(req, res) {
             contentBlock,
             {
               type: 'text',
-              text: `Analise este documento e responda APENAS com um JSON, sem nenhum texto antes ou depois, no formato exato: {"tipo": "<uma destas categorias: ${typeList}>", "competencia": "<data de competência ou emissão do documento no formato AAAA-MM-DD, ou null se não houver data identificável>", "pagina_atual": <número inteiro da página deste documento específico, extraído de marcações visíveis como "Página 1 de 2", "1/3", numeração de rodapé/cabeçalho, ou null se não houver nenhuma indicação de página visível>, "lado": "<se for um documento de identidade com frente e verso (RG, CNH, CIN), diga 'frente' (lado com foto e dados pessoais) ou 'verso' (lado com assinatura, impressão digital, ou informações complementares); para qualquer outro tipo de documento, use null>", "orientacao_atual": "<uma destas exatas: correta (o texto já está legível, de cabeça para cima), invertida (o documento está de ponta-cabeça, 180 graus), girada_horario (parece que a câmera foi girada no sentido horário ao tirar a foto, o texto está deitado com o topo apontando para a direita da imagem), girada_antihorario (parece que a câmera foi girada no sentido anti-horário, o texto está deitado com o topo apontando para a esquerda da imagem)>"}. Se o documento for um documento de identidade pessoal com foto (carteira de identidade tradicional, ou a nova Carteira de Identidade Nacional - CIN, ou qualquer RG estadual), classifique como "RG" mesmo que a palavra "RG" não apareça escrita no documento.`
+              text: `Analise este documento e responda APENAS com um JSON, sem nenhum texto antes ou depois, no formato exato: {"tipo": "<uma destas categorias: ${typeList}>", "competencia": "<data de competência ou emissão do documento no formato AAAA-MM-DD, ou null se não houver data identificável>", "pagina_atual": <número inteiro da página deste documento específico, extraído de marcações visíveis como "Página 1 de 2", "1/3", numeração de rodapé/cabeçalho, ou null se não houver nenhuma indicação de página visível>, "lado": "<se for um documento de identidade com frente e verso (RG, CNH, CIN), diga 'frente' (lado com foto e dados pessoais) ou 'verso' (lado com assinatura, impressão digital, ou informações complementares); para qualquer outro tipo de documento, use null>", "orientacao_atual": "<uma destas exatas: correta (o texto já está legível, de cabeça para cima), invertida (o documento está de ponta-cabeça, 180 graus), girada_horario (parece que a câmera foi girada no sentido horário ao tirar a foto, o texto está deitado com o topo apontando para a direita da imagem), girada_antihorario (parece que a câmera foi girada no sentido anti-horário, o texto está deitado com o topo apontando para a esquerda da imagem)>"}. Se o documento for um documento de identidade CIVIL pessoal com foto (carteira de identidade tradicional emitida pelo governo estadual, ou a nova Carteira de Identidade Nacional - CIN), classifique como "RG" mesmo que a palavra "RG" não apareça escrita nele. ATENÇÃO — não confunda isso com carteira de categoria profissional (ex: carteira de biomédico/CRBM, OAB, CRM, CREA, CRO, CRC, CRESS, ou qualquer outro conselho de classe): mesmo que também tenha foto e dados pessoais, esses documentos são emitidos por um conselho profissional, não pelo governo, e servem pra comprovar registro numa profissão — classifique-os sempre como "Carteira Profissional", nunca como "RG". Preste atenção especial em não juntar RG e Carteira Profissional no mesmo grupo só porque parecem visualmente semelhantes.`
             }
           ]
         }]
@@ -86,16 +86,24 @@ async function supabaseGet(path) {
 
 async function resolveToken(token) {
   if (!token) return null;
-  const lawyerRows = await supabaseGet(`lawyers?token=eq.${encodeURIComponent(token)}&select=token,paid`);
-  if (lawyerRows.length) return { lawyerToken: lawyerRows[0].token, paid: !!lawyerRows[0].paid, clientLinkId: null };
+  const lawyerRows = await supabaseGet(`lawyers?token=eq.${encodeURIComponent(token)}&select=token,paid,paid_until`);
+  if (lawyerRows.length) return { lawyerToken: lawyerRows[0].token, paid: isStillPaid(lawyerRows[0]), clientLinkId: null };
 
   const clientRows = await supabaseGet(`client_links?token=eq.${encodeURIComponent(token)}&used=eq.false&select=id,lawyer_token`);
   if (!clientRows.length) return null;
 
-  const parentLawyer = await supabaseGet(`lawyers?token=eq.${encodeURIComponent(clientRows[0].lawyer_token)}&select=paid`);
-  const paid = parentLawyer.length ? !!parentLawyer[0].paid : false;
+  const parentLawyer = await supabaseGet(`lawyers?token=eq.${encodeURIComponent(clientRows[0].lawyer_token)}&select=paid,paid_until`);
+  const paid = parentLawyer.length ? isStillPaid(parentLawyer[0]) : false;
 
   return { lawyerToken: clientRows[0].lawyer_token, paid, clientLinkId: clientRows[0].id };
+}
+
+// paga de verdade só conta se marcado "paid" E (sem data de validade, caso de
+// liberação manual antiga, OU a data de validade ainda não passou)
+function isStillPaid(row) {
+  if (!row.paid) return false;
+  if (!row.paid_until) return true;
+  return new Date(row.paid_until).getTime() > Date.now();
 }
 
 async function countUsageTotal(token) {

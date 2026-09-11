@@ -10,7 +10,7 @@ export default async function handler(req, res) {
     const resolved = await resolveToken(token);
     if (!resolved) return res.status(404).json({ error: 'Invalid token' });
 
-    return res.status(200).json({ name: resolved.name, email: resolved.email, paid: resolved.paid });
+    return res.status(200).json({ name: resolved.name, email: resolved.email, paid: resolved.paid, paidUntil: resolved.paidUntil });
   } catch (err) {
     console.error('lawyer-info.js error:', err);
     return res.status(500).json({ error: 'Internal error' });
@@ -33,17 +33,23 @@ async function supabaseGet(path) {
 // 2) um token de cliente de uso único (gerado em /gerar-link.html), que
 //    fica marcado como "usado" depois do primeiro envio bem-sucedido
 async function resolveToken(token) {
-  const lawyerRows = await supabaseGet(`lawyers?token=eq.${encodeURIComponent(token)}&select=token,name,email,paid`);
+  const lawyerRows = await supabaseGet(`lawyers?token=eq.${encodeURIComponent(token)}&select=token,name,email,paid,paid_until`);
   if (lawyerRows.length) {
-    return { lawyerToken: lawyerRows[0].token, name: lawyerRows[0].name, email: lawyerRows[0].email, paid: !!lawyerRows[0].paid, clientLinkId: null };
+    return { lawyerToken: lawyerRows[0].token, name: lawyerRows[0].name, email: lawyerRows[0].email, paid: isStillPaid(lawyerRows[0]), paidUntil: lawyerRows[0].paid_until, clientLinkId: null };
   }
 
   const clientRows = await supabaseGet(`client_links?token=eq.${encodeURIComponent(token)}&used=eq.false&select=id,lawyer_token`);
   if (!clientRows.length) return null;
 
   const lawyerToken = clientRows[0].lawyer_token;
-  const lawyerRows2 = await supabaseGet(`lawyers?token=eq.${encodeURIComponent(lawyerToken)}&select=name,email,paid`);
+  const lawyerRows2 = await supabaseGet(`lawyers?token=eq.${encodeURIComponent(lawyerToken)}&select=name,email,paid,paid_until`);
   if (!lawyerRows2.length) return null;
 
-  return { lawyerToken, name: lawyerRows2[0].name, email: lawyerRows2[0].email, paid: !!lawyerRows2[0].paid, clientLinkId: clientRows[0].id };
+  return { lawyerToken, name: lawyerRows2[0].name, email: lawyerRows2[0].email, paid: isStillPaid(lawyerRows2[0]), paidUntil: lawyerRows2[0].paid_until, clientLinkId: clientRows[0].id };
+}
+
+function isStillPaid(row) {
+  if (!row.paid) return false;
+  if (!row.paid_until) return true;
+  return new Date(row.paid_until).getTime() > Date.now();
 }

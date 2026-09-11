@@ -399,37 +399,18 @@
 <div class="landing-wrap" id="precos">
   <section class="pricing-section">
     <h2>Depois do teste</h2>
-    <p class="sub">Mensal ou anual, você escolhe</p>
-    <div class="price-cards-grid">
-      <div class="price-card">
-        <div class="plan-tag">MENSAL</div>
-        <div class="amount">R$ 39,90<span>/mês</span></div>
-        <ul>
-          <li><span class="check">✓</span> Documentos ilimitados</li>
-          <li><span class="check">✓</span> Classificação automática por IA</li>
-          <li><span class="check">✓</span> PDFs organizados no seu e-mail</li>
-          <li><span class="check">✓</span> Link único, sem limite de clientes</li>
-        </ul>
-        <div class="pix-box">
-          <div class="label">Pagamento via PIX</div>
-          <div class="key">(12) 99130-8362 — Pablo / Nubank</div>
-          <div class="instructions">Depois de pagar, manda o comprovante pro WhatsApp — a liberação é manual por enquanto.</div>
-        </div>
-      </div>
-      <div class="price-card">
-        <div class="plan-tag">ANUAL</div>
-        <div class="amount">R$ 399<span>/ano</span></div>
-        <ul>
-          <li><span class="check">✓</span> Equivale a R$33,25/mês</li>
-          <li><span class="check">✓</span> Parcelado em até 12x no cartão</li>
-          <li><span class="check">✓</span> Mesmos benefícios do plano mensal</li>
-        </ul>
-        <div class="pix-box">
-          <div class="label">Pagamento via PIX</div>
-          <div class="key">(12) 99130-8362 — Pablo / Nubank</div>
-          <div class="instructions">Depois de pagar, manda o comprovante pro WhatsApp — a liberação é manual por enquanto.</div>
-        </div>
-      </div>
+    <p class="sub">Um plano só, sem pegadinha</p>
+    <div class="price-card">
+      <div class="plan-tag">MENSAL — PAGAMENTO AUTOMÁTICO</div>
+      <div class="amount">R$ 39,90<span>/mês</span></div>
+      <ul>
+        <li><span class="check">✓</span> Documentos ilimitados</li>
+        <li><span class="check">✓</span> Classificação automática por IA</li>
+        <li><span class="check">✓</span> PDFs organizados no seu e-mail</li>
+        <li><span class="check">✓</span> Link único, sem limite de clientes</li>
+      </ul>
+      <p style="margin-top:16px; font-size:12px; color:var(--ink-soft);">Crie sua conta pra pagar — libera por 30 dias, pagamento automático (ainda renova na mão, mês a mês, por enquanto).</p>
+      <button class="btn-primary" style="width:100%; margin-top:12px; border-radius:14px;" onclick="location.href='/cadastro.html'">Criar conta e assinar</button>
     </div>
     <p class="faq-note"><b>Tem limite de documentos?</b> Não — caso o total ultrapasse o limite de anexo do e-mail, você recebe um link com tudo organizado pra baixar, em vez do anexo direto.</p>
   </section>
@@ -490,7 +471,7 @@
 
     <div class="card" id="upgradeCard" style="display:none">
       <p class="step-title">Seu teste grátis acabou</p>
-      <p class="note">Os 3 documentos grátis dessa conta já foram usados. Pra continuar, vai na sua área de conta pra ver as opções de pagamento.</p>
+      <p class="note">Os 3 documentos grátis dessa conta já foram usados. Vai na sua área de conta pra pagar e continuar.</p>
       <button class="primary" id="goToAccountBtn" style="margin-top:14px;">Ir pra minha conta</button>
     </div>
   </div>
@@ -503,7 +484,8 @@ const DOC_TYPES = [
   "RG", "CNH", "CPF", "Comprovante de Residência",
   "Holerite/Contracheque", "Comprovante Bancário", "Nota Fiscal",
   "CTPS", "TRCT", "Extrato do FGTS", "Procuração",
-  "Declaração de Hipossuficiência", "Certidão", "Contrato", "Conversas", "Outros"
+  "Declaração de Hipossuficiência", "Certidão", "Contrato", "Conversas",
+  "Carteira Profissional", "Outros"
 ];
 
 const token = new URLSearchParams(window.location.search).get('token');

@@ -1,4 +1,7 @@
-import crypto from 'crypto';
+const PLANS = {
+  mensal: { title: 'DossiêDoc — Plano Mensal', price: 39.9 },
+  anual: { title: 'DossiêDoc — Plano Anual', price: 399.0 }
+};
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -6,46 +9,48 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { token } = req.body;
+    const { token, plan } = req.body;
     if (!token) return res.status(400).json({ error: 'Missing token' });
+    const planKey = PLANS[plan] ? plan : 'mensal';
+    const planInfo = PLANS[planKey];
 
-    const lawyerRows = await supabaseGet(`lawyers?token=eq.${encodeURIComponent(token)}&select=email,name`);
+    const lawyerRows = await supabaseGet(`lawyers?token=eq.${encodeURIComponent(token)}&select=email`);
     if (!lawyerRows.length) return res.status(404).json({ error: 'Lawyer not found' });
-    const lawyer = lawyerRows[0];
 
-    const idempotencyKey = crypto.randomUUID();
-    const externalReference = `${token}-anual`;
+    const siteUrl = process.env.SITE_URL || `https://${req.headers.host}`;
+    const returnUrl = `${siteUrl}/conta.html?token=${encodeURIComponent(token)}`;
 
-    const response = await fetch('https://api.mercadopago.com/v1/orders', {
+    const response = await fetch('https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${process.env.MP_ACCESS_TOKEN}`,
-        'X-Idempotency-Key': idempotencyKey
+        Authorization: `Bearer ${process.env.MP_ACCESS_TOKEN}`
       },
       body: JSON.stringify({
-        type: 'online',
-        processing_mode: 'manual',
-        total_amount: '399.00',
-        external_reference: externalReference,
         items: [
-          { title: 'DossiêDoc — Plano Anual', unit_price: '399.00', quantity: 1 }
+          { title: planInfo.title, quantity: 1, currency_id: 'BRL', unit_price: planInfo.price }
         ],
-        payer: { email: lawyer.email }
+        external_reference: `${token}-${planKey}`,
+        back_urls: {
+          success: returnUrl,
+          pending: returnUrl,
+          failure: returnUrl
+        },
+        auto_return: 'approved'
       })
     });
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error('Mercado Pago create order error:', errText);
+      console.error('Mercado Pago preference error:', errText);
       return res.status(500).json({ error: 'Could not create checkout', detail: errText });
     }
 
-    const order = await response.json();
-    const checkoutUrl = order?.checkout_pro?.init_point;
+    const preference = await response.json();
+    const checkoutUrl = preference.init_point;
 
     if (!checkoutUrl) {
-      console.error('No init_point in order response:', JSON.stringify(order));
+      console.error('No init_point in preference response:', JSON.stringify(preference));
       return res.status(500).json({ error: 'No checkout URL returned' });
     }
 

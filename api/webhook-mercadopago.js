@@ -18,6 +18,8 @@ export default async function handler(req, res) {
       await handleOrderEvent(dataId);
     } else if (topic === 'preapproval' || topic === 'subscription_preapproval') {
       await handlePreapprovalEvent(dataId);
+    } else if (topic === 'payment') {
+      await handlePaymentEvent(dataId);
     }
 
     return res.status(200).json({ ok: true });
@@ -27,6 +29,39 @@ export default async function handler(req, res) {
     // indefinidamente pro mesmo evento
     return res.status(200).json({ ok: true });
   }
+}
+
+// Pagamento único (Checkout Pro clássico) — mensal (renovação manual por
+// enquanto) ou anual, dependendo do sufixo salvo na referência externa
+async function handlePaymentEvent(paymentId) {
+  const response = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+    headers: { Authorization: `Bearer ${process.env.MP_ACCESS_TOKEN}` }
+  });
+  if (!response.ok) {
+    console.error('Could not fetch payment', paymentId);
+    return;
+  }
+  const payment = await response.json();
+
+  if (payment.status !== 'approved') return;
+
+  const match = (payment.external_reference || '').match(/^(.+)-(mensal|anual)$/);
+  if (!match) return;
+  const [, lawyerToken, planType] = match;
+
+  const paidUntil = new Date();
+  if (planType === 'anual') {
+    paidUntil.setFullYear(paidUntil.getFullYear() + 1);
+  } else {
+    paidUntil.setDate(paidUntil.getDate() + 30);
+  }
+
+  await updateLawyer(lawyerToken, {
+    paid: true,
+    paid_until: paidUntil.toISOString(),
+    plan_type: planType,
+    mp_payment_id: payment.id
+  });
 }
 
 // Plano anual — compra única (Orders API)

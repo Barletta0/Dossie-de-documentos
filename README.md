@@ -145,17 +145,18 @@ Com `onboarding@resend.dev`, o Resend só entrega pro e-mail dono da conta Resen
 
 O link de um advogado é reutilizável e não expira por padrão — evita vazamento de documento pro e-mail errado, mas um link pode circular além do cliente pretendido. Duas travas contêm o estrago: o limite diário (`DAILY_LIMIT`) e, pra quem não pagou, o teste de `TRIAL_LIMIT` documentos. Existe também suporte a link de uso único por cliente (tabela `client_links`, função `/api/generate-client-link`), pra quando fizer sentido gerar um link novo por atendimento em vez de reutilizar o mesmo sempre.
 
-## Pagamento automático (mensal e anual)
+## Pagamento automático (mensal, pagamento único por período)
 
-Os dois planos são automáticos de ponta a ponta: o advogado clica em "Assinar" em `/conta.html`, é redirecionado pro checkout do Mercado Pago, paga, e a conta é liberada sozinha — sem você precisar entrar no Supabase.
+Hoje existe **um plano só: R$39,90**, via **Checkout Pro clássico (API de Preferências)** — o advogado clica em "Assinar mensal" em `/conta.html`, é redirecionado pro checkout do Mercado Pago, paga, e a conta é liberada automaticamente por **30 dias** — sem você precisar entrar no Supabase.
 
-- **Mensal (R$39,90)** — assinatura recorrente de verdade (API de Preapproval). Cobra automaticamente todo mês; cancelando, a conta é bloqueada de volta sozinha também.
-- **Anual (R$399,00)** — compra única parcelável em até 12x no cartão (API de Orders), não é assinatura que renova.
+**Importante: isso ainda não é assinatura recorrente de verdade.** É um pagamento único que libera por 30 dias; passado esse prazo, o acesso é bloqueado sozinho (a coluna `paid_until` é checada em todo acesso), e a pessoa precisa voltar em `/conta.html` e pagar de novo manualmente. A tela já mostra a data de validade e um botão de "renovar" pronto pra isso.
+
+**Por que não é recorrente ainda:** tentamos a API de Preapproval (assinatura de verdade, cobrança automática todo mês) e ela retorna o erro `"Both payer and collector must be real or test users"`, mesmo com conta em produção verificada — parece ser uma restrição específica desse produto na conta, e o suporte do Mercado Pago ainda não deu uma solução definitiva pra esse caso específico (a resposta deles até agora cobriu só o Checkout Pro de pagamento único). Quando isso for resolvido, dá pra trocar `create-checkout.js` de volta pra usar Preapproval sem precisar mudar o resto do sistema.
 
 **Passo que só você faz uma vez, no painel do Mercado Pago** (não dá pra automatizar isso por API):
 1. Em [developers.mercadopago.com.br](https://developers.mercadopago.com.br) → sua aplicação → **Webhooks** → **Configurar notificações**.
 2. Na aba **Produção**, cola a URL: `https://SEU-DOMINIO/api/webhook-mercadopago`
-3. Marca os eventos **"Order (Mercado Pago)"** (pro anual) e **"Assinaturas" / "Preapproval"** (pro mensal) — marca os dois, se aparecerem como opções separadas.
+3. Marca o evento **"Payments"** (é o que a API de Preferências usa).
 4. Salva.
 
 Sem esse passo, o pagamento em si funciona (a pessoa consegue pagar), mas a liberação automática não roda — nesse caso, confere manualmente no painel do Mercado Pago quem pagou e libera pelo Supabase.
