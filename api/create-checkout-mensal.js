@@ -22,7 +22,6 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         reason: 'DossiêDoc — Plano Mensal',
         external_reference: `${token}-mensal`,
-        payer_email: lawyer.email,
         auto_recurring: {
           frequency: 1,
           frequency_type: 'months',
