@@ -37,7 +37,7 @@ export default async function handler(req, res) {
     if (!response.ok) {
       const errText = await response.text();
       console.error('Mercado Pago preapproval error:', errText);
-      return res.status(500).json({ error: 'Could not create subscription checkout' });
+      return res.status(500).json({ error: 'Could not create subscription checkout', detail: errText });
     }
 
     const preapproval = await response.json();

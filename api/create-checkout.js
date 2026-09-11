@@ -38,7 +38,7 @@ export default async function handler(req, res) {
     if (!response.ok) {
       const errText = await response.text();
       console.error('Mercado Pago create order error:', errText);
-      return res.status(500).json({ error: 'Could not create checkout' });
+      return res.status(500).json({ error: 'Could not create checkout', detail: errText });
     }
 
     const order = await response.json();
