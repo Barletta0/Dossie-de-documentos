@@ -10,7 +10,7 @@ export default async function handler(req, res) {
     const resolved = await resolveToken(token);
     if (!resolved) return res.status(404).json({ error: 'Invalid token' });
 
-    return res.status(200).json({ name: resolved.name, paid: resolved.paid });
+    return res.status(200).json({ name: resolved.name, email: resolved.email, paid: resolved.paid });
   } catch (err) {
     console.error('lawyer-info.js error:', err);
     return res.status(500).json({ error: 'Internal error' });

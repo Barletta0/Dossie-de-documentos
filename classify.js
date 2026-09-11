@@ -40,14 +40,14 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-5',
-        max_tokens: 200,
+        max_tokens: 250,
         messages: [{
           role: 'user',
           content: [
             contentBlock,
             {
               type: 'text',
-              text: `Analise este documento e responda APENAS com um JSON, sem nenhum texto antes ou depois, no formato exato: {"tipo": "<uma destas categorias: ${typeList}>", "competencia": "<data de competência ou emissão do documento no formato AAAA-MM-DD, ou null se não houver data identificável>", "pagina_atual": <número inteiro da página deste documento específico, extraído de marcações visíveis como "Página 1 de 2", "1/3", numeração de rodapé/cabeçalho, ou null se não houver nenhuma indicação de página visível>, "orientacao_atual": "<uma destas exatas: correta (o texto já está legível, de cabeça para cima), invertida (o documento está de ponta-cabeça, 180 graus), girada_horario (parece que a câmera foi girada no sentido horário ao tirar a foto, o texto está deitado com o topo apontando para a direita da imagem), girada_antihorario (parece que a câmera foi girada no sentido anti-horário, o texto está deitado com o topo apontando para a esquerda da imagem)>"}. Se o documento for um documento de identidade pessoal com foto (carteira de identidade tradicional, ou a nova Carteira de Identidade Nacional - CIN, ou qualquer RG estadual), classifique como "RG" mesmo que a palavra "RG" não apareça escrita no documento.`
+              text: `Analise este documento e responda APENAS com um JSON, sem nenhum texto antes ou depois, no formato exato: {"tipo": "<uma destas categorias: ${typeList}>", "competencia": "<data de competência ou emissão do documento no formato AAAA-MM-DD, ou null se não houver data identificável>", "pagina_atual": <número inteiro da página deste documento específico, extraído de marcações visíveis como "Página 1 de 2", "1/3", numeração de rodapé/cabeçalho, ou null se não houver nenhuma indicação de página visível>, "lado": "<se for um documento de identidade com frente e verso (RG, CNH, CIN), diga 'frente' (lado com foto e dados pessoais) ou 'verso' (lado com assinatura, impressão digital, ou informações complementares); para qualquer outro tipo de documento, use null>", "orientacao_atual": "<uma destas exatas: correta (o texto já está legível, de cabeça para cima), invertida (o documento está de ponta-cabeça, 180 graus), girada_horario (parece que a câmera foi girada no sentido horário ao tirar a foto, o texto está deitado com o topo apontando para a direita da imagem), girada_antihorario (parece que a câmera foi girada no sentido anti-horário, o texto está deitado com o topo apontando para a esquerda da imagem)>"}. Se o documento for um documento de identidade pessoal com foto (carteira de identidade tradicional, ou a nova Carteira de Identidade Nacional - CIN, ou qualquer RG estadual), classifique como "RG" mesmo que a palavra "RG" não apareça escrita no documento.`
             }
           ]
         }]

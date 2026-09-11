@@ -7,10 +7,13 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, acceptedTerms } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({ error: 'Missing name, email or password' });
+    }
+    if (!acceptedTerms) {
+      return res.status(400).json({ error: 'Terms not accepted' });
     }
     if (password.length < 6) {
       return res.status(400).json({ error: 'Password too short' });
@@ -27,7 +30,11 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
         Prefer: 'return=representation'
       },
-      body: JSON.stringify({ name, email, token, password_hash: passwordHash })
+      body: JSON.stringify({
+        name, email, token,
+        password_hash: passwordHash,
+        terms_accepted_at: new Date().toISOString()
+      })
     });
 
     if (!response.ok) {
