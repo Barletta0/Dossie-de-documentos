@@ -145,19 +145,20 @@ Com `onboarding@resend.dev`, o Resend só entrega pro e-mail dono da conta Resen
 
 O link de um advogado é reutilizável e não expira por padrão — evita vazamento de documento pro e-mail errado, mas um link pode circular além do cliente pretendido. Duas travas contêm o estrago: o limite diário (`DAILY_LIMIT`) e, pra quem não pagou, o teste de `TRIAL_LIMIT` documentos. Existe também suporte a link de uso único por cliente (tabela `client_links`, função `/api/generate-client-link`), pra quando fizer sentido gerar um link novo por atendimento em vez de reutilizar o mesmo sempre.
 
-## Pagamento automático (plano anual)
+## Pagamento automático (mensal e anual)
 
-O plano anual (R$399,00, parcelável em até 12x) é automático de ponta a ponta: o advogado clica em "Assinar plano anual" em `/conta.html`, é redirecionado pro checkout do Mercado Pago, paga, e a conta é liberada sozinha — sem você precisar entrar no Supabase.
+Os dois planos são automáticos de ponta a ponta: o advogado clica em "Assinar" em `/conta.html`, é redirecionado pro checkout do Mercado Pago, paga, e a conta é liberada sozinha — sem você precisar entrar no Supabase.
+
+- **Mensal (R$39,90)** — assinatura recorrente de verdade (API de Preapproval). Cobra automaticamente todo mês; cancelando, a conta é bloqueada de volta sozinha também.
+- **Anual (R$399,00)** — compra única parcelável em até 12x no cartão (API de Orders), não é assinatura que renova.
 
 **Passo que só você faz uma vez, no painel do Mercado Pago** (não dá pra automatizar isso por API):
 1. Em [developers.mercadopago.com.br](https://developers.mercadopago.com.br) → sua aplicação → **Webhooks** → **Configurar notificações**.
 2. Na aba **Produção**, cola a URL: `https://SEU-DOMINIO/api/webhook-mercadopago`
-3. Marca o evento **"Order (Mercado Pago)"**.
+3. Marca os eventos **"Order (Mercado Pago)"** (pro anual) e **"Assinaturas" / "Preapproval"** (pro mensal) — marca os dois, se aparecerem como opções separadas.
 4. Salva.
 
-Sem esse passo, o pagamento funciona (a pessoa consegue pagar), mas a liberação automática não roda — nesse caso, confere manualmente no painel do Mercado Pago quem pagou e libera pelo Supabase, do jeito que já era feito com PIX.
-
-O plano mensal (R$39,90) continua manual por enquanto — usa a ferramenta pronta "Planos de assinatura" do próprio painel do Mercado Pago (sem código), e a liberação nesse caso ainda é você conferindo e marcando `paid = true` no Supabase.
+Sem esse passo, o pagamento em si funciona (a pessoa consegue pagar), mas a liberação automática não roda — nesse caso, confere manualmente no painel do Mercado Pago quem pagou e libera pelo Supabase.
 
 ## Segurança e retenção de dados
 

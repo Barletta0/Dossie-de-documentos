@@ -245,6 +245,14 @@
   .pricing-section { padding: 0 0 64px; text-align: center; }
   .pricing-section h2 { font-family: 'Poppins', sans-serif; font-size: 28px; margin: 0 0 8px; }
   .pricing-section .sub { color: var(--ink-soft); margin: 0 auto 36px; max-width: none; }
+  .price-cards-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  @media (max-width: 720px) { .price-cards-grid { grid-template-columns: 1fr; } }
   .price-card {
     background: var(--bg);
     border-radius: 28px;
@@ -391,20 +399,31 @@
 <div class="landing-wrap" id="precos">
   <section class="pricing-section">
     <h2>Depois do teste</h2>
-    <p class="sub">Um plano só, sem pegadinha</p>
-    <div class="price-card">
-      <div class="plan-tag">PLANO ÚNICO (mais planos em breve)</div>
-      <div class="amount">R$ 39,90<span>/mês</span></div>
-      <ul>
-        <li><span class="check">✓</span> Documentos ilimitados</li>
-        <li><span class="check">✓</span> Classificação automática por IA</li>
-        <li><span class="check">✓</span> PDFs organizados no seu e-mail</li>
-        <li><span class="check">✓</span> Link único, sem limite de clientes</li>
-      </ul>
-      <div class="pix-box">
-        <div class="label">Pagamento via PIX</div>
-        <div class="key">(12) 99130-8362 — Pablo / Nubank</div>
-        <div class="instructions">Depois de pagar, manda o comprovante pro WhatsApp — a liberação é manual até novembro. A partir de novembro, cartão e liberação automática entram no ar.</div>
+    <p class="sub">Mensal ou anual, você escolhe</p>
+    <div class="price-cards-grid">
+      <div class="price-card">
+        <div class="plan-tag">MENSAL — PAGAMENTO AUTOMÁTICO</div>
+        <div class="amount">R$ 39,90<span>/mês</span></div>
+        <ul>
+          <li><span class="check">✓</span> Documentos ilimitados</li>
+          <li><span class="check">✓</span> Classificação automática por IA</li>
+          <li><span class="check">✓</span> PDFs organizados no seu e-mail</li>
+          <li><span class="check">✓</span> Cobrança automática, cancela quando quiser</li>
+        </ul>
+        <p style="margin-top:16px; font-size:12px; color:var(--ink-soft);">Crie sua conta pra assinar — o pagamento é feito depois do teste grátis, direto na sua área de conta.</p>
+        <button class="btn-primary" style="width:100%; margin-top:12px; border-radius:14px;" onclick="location.href='/cadastro.html'">Criar conta e assinar</button>
+      </div>
+      <div class="price-card">
+        <div class="plan-tag">ANUAL — PAGAMENTO AUTOMÁTICO</div>
+        <div class="amount">R$ 399<span>/ano</span></div>
+        <ul>
+          <li><span class="check">✓</span> Equivale a R$33,25/mês</li>
+          <li><span class="check">✓</span> Parcelado em até 12x no cartão</li>
+          <li><span class="check">✓</span> Pagamento e liberação automáticos</li>
+          <li><span class="check">✓</span> Mesmos benefícios do plano mensal</li>
+        </ul>
+        <p class="instructions" style="margin-top:16px;">Crie sua conta pra assinar — o pagamento é feito depois do teste grátis, direto na sua área de conta.</p>
+        <button class="btn-primary" style="width:100%; margin-top:12px; border-radius:14px;" onclick="location.href='/cadastro.html'">Criar conta e assinar</button>
       </div>
     </div>
     <p class="faq-note"><b>Tem limite de documentos?</b> Não — caso o total ultrapasse o limite de anexo do e-mail, você recebe um link com tudo organizado pra baixar, em vez do anexo direto.</p>
@@ -466,22 +485,8 @@
 
     <div class="card" id="upgradeCard" style="display:none">
       <p class="step-title">Seu teste grátis acabou</p>
-      <p class="note">Os 3 documentos grátis dessa conta já foram usados. Pra continuar, assina o plano abaixo.</p>
-      <div class="price-card" style="max-width:none; margin-top:16px;">
-        <div class="plan-tag">PLANO ÚNICO (mais planos em breve)</div>
-        <div class="amount">R$ 39,90<span>/mês</span></div>
-        <ul>
-          <li><span class="check">✓</span> Documentos ilimitados</li>
-          <li><span class="check">✓</span> Classificação automática por IA</li>
-          <li><span class="check">✓</span> PDFs organizados no seu e-mail</li>
-          <li><span class="check">✓</span> Link único, sem limite de clientes</li>
-        </ul>
-        <div class="pix-box">
-          <div class="label">Pagamento via PIX</div>
-          <div class="key">(12) 99130-8362 — Pablo / Nubank</div>
-          <div class="instructions">Depois de pagar, manda o comprovante pro WhatsApp — a liberação é manual até novembro. Assim que confirmarmos, seu link libera automaticamente.</div>
-        </div>
-      </div>
+      <p class="note">Os 3 documentos grátis dessa conta já foram usados. Pra continuar sem limite (mensal ou anual, pagamento automático), vai na sua área de conta.</p>
+      <button class="primary" id="goToAccountBtn">Ir pra minha conta</button>
     </div>
   </div>
 
@@ -497,6 +502,9 @@ const DOC_TYPES = [
 ];
 
 const token = new URLSearchParams(window.location.search).get('token');
+document.getElementById('goToAccountBtn').addEventListener('click', () => {
+  window.location.href = '/conta.html?token=' + encodeURIComponent(token);
+});
 const isPreview = new URLSearchParams(window.location.search).get('preview') === '1';
 
 function escapeHtml(str) {
