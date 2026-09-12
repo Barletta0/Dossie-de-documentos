@@ -57,7 +57,7 @@
     <header>
       <div class="kicker">Dossiê de Documentos</div>
       <h1 id="trialGreeting">Ainda em teste</h1>
-      <p class="sub">Você ainda está no teste grátis de 3 documentos. Depois de assinar, essa página passa a mostrar seu link definitivo pra mandar aos clientes.</p>
+      <p class="sub">Você ainda está no teste grátis de 8 documentos. Depois de assinar, essa página passa a mostrar seu link definitivo pra mandar aos clientes.</p>
     </header>
     <div class="card" id="continueTestCard">
       <p class="step-title">Continuar testando</p>
@@ -181,7 +181,7 @@ function render(data) {
       trialState.style.display = 'block';
       if (data.trialExhausted) {
         document.getElementById('continueTestCard').style.display = 'none';
-        document.querySelector('#trialState .sub').textContent = 'Seu teste grátis de 3 documentos já acabou. Assina abaixo pra continuar.';
+        document.querySelector('#trialState .sub').textContent = 'Seu teste grátis de 8 documentos já acabou. Assina abaixo pra continuar.';
       }
       document.getElementById('testBtn').addEventListener('click', () => {
         window.location.href = '/?token=' + encodeURIComponent(token) + '&preview=1';
