@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Feedback — DossiêDoc</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+<style>
+  textarea#message {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1.5px solid var(--line);
+    border-radius: 12px;
+    font-family: inherit;
+    font-size: 15px;
+    background: var(--bg);
+    color: var(--navy);
+    min-height: 120px;
+    resize: vertical;
+  }
+  textarea#message:focus { outline: none; border-color: var(--blue); background: #fff; }
+</style>
+</head>
+<body>
+<div class="site-header-bar">
+  <a href="/" class="logo">dossiê<span class="doc">doc</span></a>
+  <a href="/" class="home-link">Página inicial</a>
+</div>
+<div class="wrap">
+
+  <header>
+    <div class="kicker">Dossiê de Documentos</div>
+    <h1>Achou um erro? Tem uma sugestão?</h1>
+    <p class="sub">Manda aqui — a mensagem vai direto por e-mail pra quem cuida do site.</p>
+  </header>
+
+  <div class="card" id="formCard">
+    <label class="field-label" for="message">O que aconteceu, ou o que você sugere</label>
+    <textarea id="message" placeholder="Descreve o que você achou, o mais detalhado possível — em qual tela, o que esperava que acontecesse, etc."></textarea>
+    <label class="field-label" for="replyEmail" style="margin-top:14px">Seu e-mail (opcional, só se quiser resposta)</label>
+    <input type="email" id="replyEmail" placeholder="voce@email.com">
+    <div id="errorArea"></div>
+    <button class="primary" id="sendBtn">Enviar</button>
+  </div>
+
+  <div class="card" id="doneCard" style="display:none">
+    <p class="step-title">Enviado, obrigado!</p>
+    <p class="note">Sua mensagem chegou. Se deixou e-mail, pode receber resposta em breve.</p>
+    <a href="/">Voltar pra página inicial</a>
+  </div>
+
+</div>
+
+<script>
+const sendBtn = document.getElementById('sendBtn');
+const errorArea = document.getElementById('errorArea');
+
+sendBtn.addEventListener('click', sendFeedback);
+
+async function sendFeedback() {
+  const message = document.getElementById('message').value.trim();
+  const replyEmail = document.getElementById('replyEmail').value.trim();
+  errorArea.innerHTML = '';
+
+  if (!message) {
+    errorArea.innerHTML = '<div class="error-banner">Escreve alguma coisa antes de enviar.</div>';
+    return;
+  }
+
+  sendBtn.disabled = true;
+  sendBtn.textContent = 'Enviando…';
+
+  try {
+    const resp = await fetch('/api/send-feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, replyEmail })
+    });
+    if (!resp.ok) throw new Error('falha');
+
+    document.getElementById('formCard').style.display = 'none';
+    document.getElementById('doneCard').style.display = 'block';
+  } catch (err) {
+    console.error('send feedback error', err);
+    errorArea.innerHTML = '<div class="error-banner">Não deu pra enviar agora. Tenta de novo em instantes.</div>';
+    sendBtn.disabled = false;
+    sendBtn.textContent = 'Enviar';
+  }
+}
+</script>
+</body>
+</html>

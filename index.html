@@ -416,7 +416,7 @@
   </section>
 </div>
 
-<footer class="page-footer">DOSSIÊDOC — organize documentos de qualquer cliente · <a href="/termos.html" style="color:inherit">Termos e Privacidade</a></footer>
+<footer class="page-footer">DOSSIÊDOC — organize documentos de qualquer cliente · <a href="/termos.html" style="color:inherit">Termos e Privacidade</a> · <a href="/feedback.html" style="color:inherit">Reportar erro ou sugestão</a></footer>
 
 </div>
 
@@ -598,16 +598,45 @@ fileInput.addEventListener('change', e => handleFiles(e.target.files));
 async function handleFiles(fileList) {
   errorArea.innerHTML = '';
   const rawFiles = Array.from(fileList);
+  const unsupportedNames = [];
+  let heicCount = 0;
 
   for (const file of rawFiles) {
     const isZip = file.name.toLowerCase().endsWith('.zip') ||
       file.type === 'application/zip' || file.type === 'application/x-zip-compressed';
+    const isHeic = /\.(heic|heif)$/i.test(file.name) ||
+      file.type === 'image/heic' || file.type === 'image/heif';
+
     if (isZip) {
       await handleZipFile(file);
+    } else if (isHeic) {
+      heicCount++;
     } else if (file.type.startsWith('image/') || file.type === 'application/pdf') {
       processSingleFile(file);
+    } else {
+      unsupportedNames.push(file.name);
     }
   }
+
+  const messages = [];
+  if (heicCount > 0) {
+    messages.push(
+      heicCount + ' arquivo(s) .heic (foto de iPhone) não são suportados ainda. ' +
+      'Nas Configurações do iPhone → Câmera → Formatos, muda pra "Mais Compatível" ' +
+      '(salva em JPEG) e tenta enviar de novo, ou escolhe a opção de converter pra JPEG ao compartilhar a foto.'
+    );
+  }
+  if (unsupportedNames.length > 0) {
+    messages.push(
+      unsupportedNames.length + ' arquivo(s) não reconhecidos e ignorados (' +
+      unsupportedNames.map(escapeHtml).join(', ') +
+      ') — só aceita foto, PDF, ou um .zip com esses dentro.'
+    );
+  }
+  if (messages.length > 0) {
+    errorArea.innerHTML = messages.map(m => '<div class="error-banner">' + m + '</div>').join('');
+  }
+
   fileInput.value = '';
 }
 
@@ -625,7 +654,7 @@ function processSingleFile(file) {
       .then(({ dataUrl, base64, mediaType }) => addDoc(file, dataUrl, base64, mediaType, false))
       .catch(err => {
         console.error('Erro ao normalizar imagem', file.name, err);
-        errorArea.innerHTML = '<div class="error-banner">Não consegui processar "' + escapeHtml(file.name) + '". Tenta enviar de novo.</div>';
+        errorArea.innerHTML += '<div class="error-banner">Não consegui processar "' + escapeHtml(file.name) + '". Tenta enviar de novo, ou em outro formato (JPEG/PNG).</div>';
       });
   }
 }
@@ -634,6 +663,9 @@ function extensionToMime(name) {
   const ext = name.split('.').pop().toLowerCase();
   if (ext === 'png') return 'image/png';
   if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+  if (ext === 'gif') return 'image/gif';
+  if (ext === 'bmp') return 'image/bmp';
+  if (ext === 'webp') return 'image/webp';
   if (ext === 'pdf') return 'application/pdf';
   return null;
 }
@@ -874,7 +906,7 @@ async function classifyDocument(doc) {
     const cleaned = raw.replace(/^```json\s*|```$/g, '').trim();
     const parsed = JSON.parse(cleaned);
     type = DOC_TYPES.find(t => (parsed.tipo || '').toLowerCase().includes(t.toLowerCase()));
-    competencia = parsed.competencia && parsed.competencia !== 'null' ? parsed.competencia : null;
+    competencia = /^\d{4}-\d{2}-\d{2}$/.test(parsed.competencia) ? parsed.competencia : null;
 
     // a IA descreve a orientação em palavras (mais confiável do que ela
     // mesma calcular o ângulo); aqui a gente converte pra grau exato
@@ -954,7 +986,14 @@ async function buildPdfsByType(docsToInclude) {
           const srcBytes = base64ToBytes(doc.base64);
           const srcPdf = await PDFDocument.load(srcBytes);
           const copiedPages = await mergedPdf.copyPages(srcPdf, srcPdf.getPageIndices());
-          copiedPages.forEach(p => mergedPdf.addPage(p));
+          copiedPages.forEach(p => {
+            mergedPdf.addPage(p);
+            // mesma correção de orientação que já existia só pra foto —
+            // PDF enviado de ponta-cabeça também precisa disso
+            if (doc.rotation) {
+              p.setRotation(degrees(doc.rotation));
+            }
+          });
         } else {
           const imgBytes = base64ToBytes(doc.base64);
           let img;

@@ -112,6 +112,9 @@ Crie um repositório e suba a pasta inteira, incluindo a pasta `api`.
 | `DAILY_LIMIT` | opcional — documentos por dia por advogado. Padrão: `60` |
 | `TRIAL_LIMIT` | opcional — documentos grátis antes de exigir pagamento. Padrão: `3` |
 | `CRON_SECRET` | recomendado — qualquer texto aleatório longo. Protege a limpeza automática do Storage (veja "Segurança e retenção de dados" abaixo) |
+| `FEEDBACK_EMAIL` | opcional — pra onde vão as mensagens de `/feedback.html`. Se não definir, usa `FROM_EMAIL` |
+
+**Nota sobre o plano do Vercel:** o projeto está com exatamente 12 funções em `api/`, que é o teto do plano gratuito (Hobby) — "No more than 12 Serverless Functions can be added to a Deployment on the Hobby plan". Pra adicionar uma função nova, é preciso apagar/juntar alguma existente primeiro, ou passar pro plano pago (Pro) do Vercel.
 | `MP_ACCESS_TOKEN` | credencial de produção do Mercado Pago (Access Token) |
 | `MP_PUBLIC_KEY` | credencial de produção do Mercado Pago (Public Key) |
 
