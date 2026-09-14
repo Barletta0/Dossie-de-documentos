@@ -20,6 +20,9 @@ export default async function handler(req, res) {
     const siteUrl = process.env.SITE_URL || `https://${req.headers.host}`;
     const returnUrl = `${siteUrl}/conta.html?token=${encodeURIComponent(token)}`;
 
+    const tokenPrefix = (process.env.MP_ACCESS_TOKEN || 'MISSING').substring(0, 12);
+    console.log('MP_ACCESS_TOKEN prefix in use:', tokenPrefix);
+
     const response = await fetch('https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',
       headers: {
@@ -54,7 +57,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'No checkout URL returned' });
     }
 
-    return res.status(200).json({ checkoutUrl, preferenceId: preference.id });
+    return res.status(200).json({ checkoutUrl, preferenceId: preference.id, tokenPrefixUsed: tokenPrefix });
   } catch (err) {
     console.error('create-checkout.js error:', err);
     return res.status(500).json({ error: 'Internal error' });

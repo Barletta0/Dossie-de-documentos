@@ -213,7 +213,9 @@ function render(data) {
             btn.textContent = 'Pagar R$39,90';
             return;
           }
-          window.location.href = data.checkoutUrl;
+          note.innerHTML = 'Token usado (prefixo): <code>' + data.tokenPrefixUsed + '</code><br><a href="' + data.checkoutUrl + '" style="color:var(--blue); font-weight:600;">Clique aqui pra continuar o pagamento →</a>';
+          btn.disabled = false;
+          btn.textContent = 'Pagar R$39,90';
         } catch (err) {
           console.error('checkout error', err);
           note.textContent = 'Falha de rede: ' + err.message;
