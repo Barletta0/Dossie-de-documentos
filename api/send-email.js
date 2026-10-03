@@ -4,7 +4,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { clientName, files, token } = req.body;
+    const { clientName, files, token, meta } = req.body;
 
     if (!token) return res.status(401).json({ error: 'Invalid token' });
     const resolved = await resolveToken(token);
@@ -40,6 +40,7 @@ export default async function handler(req, res) {
     if (!response.ok) {
       const errText = await response.text();
       console.error('Resend API error:', errText);
+      await logEvento(resolved.lawyerToken, 'envio', false, { ...safeMeta(meta, files), status: response.status });
       return res.status(response.status).json({ error: 'Email send error' });
     }
 
@@ -47,9 +48,11 @@ export default async function handler(req, res) {
       await markClientLinkUsed(resolved.clientLinkId);
     }
 
+    await logEvento(resolved.lawyerToken, 'envio', true, safeMeta(meta, files));
     return res.status(200).json({ success: true });
   } catch (err) {
     console.error('send-email.js error:', err);
+    await logEvento(null, 'envio', false, { interno: String(err && err.message || err).slice(0, 200) });
     return res.status(500).json({ error: 'Internal error' });
   }
 }
@@ -101,5 +104,37 @@ async function markClientLinkUsed(clientLinkId) {
     });
   } catch (err) {
     console.error('markClientLinkUsed error:', err);
+  }
+}
+
+
+// Só números e nomes de tipo — nada do conteúdo dos documentos.
+function safeMeta(meta, files) {
+  const m = meta && typeof meta === 'object' ? meta : {};
+  const n = v => (Number.isFinite(Number(v)) ? Number(v) : null);
+  return {
+    arquivos_pdf: Array.isArray(files) ? files.length : null,
+    documentos: n(m.documentos),
+    outros: n(m.outros),
+    falhas_classificacao: n(m.falhas_classificacao),
+    sem_data: n(m.sem_data),
+    tipos: Array.isArray(m.tipos) ? m.tipos.slice(0, 20).map(t => String(t).slice(0, 40)) : null
+  };
+}
+
+async function logEvento(lawyerToken, tipo, ok, detalhe) {
+  try {
+    await fetch(`${process.env.SUPABASE_URL}/rest/v1/eventos`, {
+      method: 'POST',
+      headers: {
+        apikey: process.env.SUPABASE_SERVICE_KEY,
+        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal'
+      },
+      body: JSON.stringify({ lawyer_token: lawyerToken, tipo, ok, detalhe })
+    });
+  } catch (e) {
+    console.error('logEvento error:', e);
   }
 }
