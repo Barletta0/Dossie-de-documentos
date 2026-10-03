@@ -66,7 +66,7 @@
     </div>
     <div class="card">
       <p class="step-title">Assinar mensal — R$ 39,90</p>
-      <p class="note">Documentos ilimitados, sem limite de clientes. Libera por 30 dias, pagamento automático. Ainda não renova sozinho — no mês seguinte, é só voltar aqui e pagar de novo.</p>
+      <p class="note">Documentos ilimitados, sem limite de clientes. Libera por 30 dias, com renovação manual: no mês seguinte, é só voltar aqui e pagar de novo.</p>
       <button class="primary" id="monthlyBtn">Pagar R$39,90</button>
       <p class="note" id="monthlyNote"></p>
     </div>
@@ -202,13 +202,15 @@ function render(data) {
           try {
             data = JSON.parse(rawText);
           } catch (parseErr) {
-            note.textContent = 'Erro (status ' + resp.status + '): ' + rawText.slice(0, 300);
+            console.error('checkout resposta inesperada', resp.status, rawText.slice(0, 300));
+            note.textContent = 'Não foi possível abrir o pagamento agora. Tenta de novo em instantes; se persistir, fala com o suporte.';
             btn.disabled = false;
             btn.textContent = 'Pagar R$39,90';
             return;
           }
           if (!resp.ok) {
-            note.textContent = 'Erro: ' + (data.detail || data.error || 'desconhecido');
+            console.error('checkout erro', data);
+            note.textContent = 'Não foi possível abrir o pagamento agora. Tenta de novo em instantes; se persistir, fala com o suporte.';
             btn.disabled = false;
             btn.textContent = 'Pagar R$39,90';
             return;
@@ -216,7 +218,7 @@ function render(data) {
           window.location.href = data.checkoutUrl;
         } catch (err) {
           console.error('checkout error', err);
-          note.textContent = 'Falha de rede: ' + err.message;
+          note.textContent = 'Sem conexão com o servidor. Confere sua internet e tenta de novo.';
           btn.disabled = false;
           btn.textContent = 'Pagar R$39,90';
         }
