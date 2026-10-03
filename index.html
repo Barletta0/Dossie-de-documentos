@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DossiêDoc — Dossiê de Documentos</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="DossiêDoc">
+<meta property="og:title" content="DossiêDoc — documentos organizados">
+<meta property="og:description" content="Envie seus documentos por foto ou PDF. Eles chegam organizados por tipo para quem pediu.">
+<meta property="og:image" content="https://organizadordoc.com.br/instagram-profile.png">
 <meta name="description" content="Seu cliente sobe fotos ou PDFs de documentos por um link. A IA identifica cada tipo, organiza e manda tudo pronto pro seu e-mail — sem baixar, converter ou organizar nada na mão.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -84,6 +89,13 @@
   }
   @media (max-width: 860px) { .hero-grid { grid-template-columns: 1fr; } }
 
+  .hero-grid > * { min-width: 0; }
+  .hero-copy { min-width: 0; }
+  @media (max-width: 400px) {
+    .hero-copy h1 { font-size: 30px; }
+    .hero-section { padding: 32px 18px; }
+    .landing-wrap { padding: 0 18px; }
+  }
   .hero-copy h1 {
     font-family: 'Poppins', sans-serif;
     font-weight: 800;
@@ -353,9 +365,9 @@
         <div class="browser-frame">
           <div class="browser-bar"><span></span><span></span><span></span></div>
           <div class="browser-body">
-            <div class="mock-row"><span class="mock-dot"></span> identificacao.png → RG_Maria.pdf <span class="mock-tag">RG</span></div>
-            <div class="mock-row"><span class="mock-dot"></span> recibo_marco.png → Comprovante_Marco.pdf <span class="mock-tag">Comprovante</span></div>
-            <div class="mock-row"><span class="mock-dot"></span> comprovante.png → Pablo_Holerite.pdf <span class="mock-tag">Comprovante</span></div>
+            <div class="mock-row"><span class="mock-dot"></span> foto_identidade.jpg → Maria_Souza_RG.pdf <span class="mock-tag">RG</span></div>
+            <div class="mock-row"><span class="mock-dot"></span> recibo_marco.png → Maria_Souza_Holerite-Contracheque.pdf <span class="mock-tag">Holerite</span></div>
+            <div class="mock-row"><span class="mock-dot"></span> conta_de_luz.jpg → Maria_Souza_Comprovante_de_Residência.pdf <span class="mock-tag">Residência</span></div>
             <div class="mock-upload">Solte novos documentos aqui</div>
           </div>
         </div>
@@ -401,7 +413,7 @@
     <h2>Depois do teste</h2>
     <p class="sub">Um plano só, sem pegadinha</p>
     <div class="price-card">
-      <div class="plan-tag">MENSAL — PAGAMENTO AUTOMÁTICO</div>
+      <div class="plan-tag">MENSAL — RENOVAÇÃO MANUAL</div>
       <div class="amount">R$ 39,90<span>/mês</span></div>
       <ul>
         <li><span class="check">✓</span> Documentos ilimitados</li>
@@ -409,7 +421,7 @@
         <li><span class="check">✓</span> PDFs organizados no seu e-mail</li>
         <li><span class="check">✓</span> Link único, sem limite de clientes</li>
       </ul>
-      <p style="margin-top:16px; font-size:12px; color:var(--ink-soft);">Crie sua conta pra pagar — libera por 30 dias, pagamento automático (ainda renova na mão, mês a mês, por enquanto).</p>
+      <p style="margin-top:16px; font-size:12px; color:var(--ink-soft);">Crie sua conta pra pagar — libera por 30 dias. A renovação é manual: no mês seguinte, é só voltar e pagar de novo.</p>
       <button class="btn-primary" style="width:100%; margin-top:12px; border-radius:14px;" onclick="location.href='/cadastro.html'">Criar conta e assinar</button>
     </div>
     <p class="faq-note"><b>Tem limite de documentos?</b> Não — caso o total ultrapasse o limite de anexo do e-mail, você recebe um link com tudo organizado pra baixar, em vez do anexo direto.</p>
@@ -450,8 +462,8 @@
     <div class="card">
       <span class="step-num">Passo 1</span>
       <p class="step-title">Seu nome completo</p>
-      <label class="field-label" for="clientName">Usado para nomear os arquivos</label>
-      <input type="text" id="clientName" placeholder="Ex: Maria Souza">
+      <label class="field-label" for="clientName">Obrigatório — usado para nomear os arquivos e identificar de quem são</label>
+      <input type="text" id="clientName" placeholder="Ex: Maria Souza" required autocomplete="name">
     </div>
 
     <div class="card">
@@ -545,6 +557,15 @@ const groupsEl = document.getElementById('groups');
 
 let lawyerEmail = null;
 
+// avisos acumulam por chave (em vez de um apagar o outro)
+const notices = new Map();
+function renderNotices() {
+  errorArea.innerHTML = Array.from(notices.values()).map(m => '<div class="error-banner">' + m + '</div>').join('');
+}
+function setNotice(key, html) { notices.set(key, html); renderNotices(); }
+function clearNotice(key) { notices.delete(key); renderNotices(); }
+function clearNotices() { notices.clear(); renderNotices(); }
+
 init();
 
 async function init() {
@@ -596,7 +617,8 @@ dropzone.addEventListener('drop', e => {
 fileInput.addEventListener('change', e => handleFiles(e.target.files));
 
 async function handleFiles(fileList) {
-  errorArea.innerHTML = '';
+  clearNotices();
+  duplicatesSkipped = 0;
   const rawFiles = Array.from(fileList);
   const unsupportedNames = [];
   let heicCount = 0;
@@ -618,25 +640,20 @@ async function handleFiles(fileList) {
     }
   }
 
-  const messages = [];
   if (heicCount > 0) {
-    messages.push(
+    setNotice('heic',
       heicCount + ' arquivo(s) .heic (foto de iPhone) não são suportados ainda. ' +
       'Nas Configurações do iPhone → Câmera → Formatos, muda pra "Mais Compatível" ' +
       '(salva em JPEG) e tenta enviar de novo, ou escolhe a opção de converter pra JPEG ao compartilhar a foto.'
     );
   }
   if (unsupportedNames.length > 0) {
-    messages.push(
+    setNotice('unsupported',
       unsupportedNames.length + ' arquivo(s) não reconhecidos e ignorados (' +
       unsupportedNames.map(escapeHtml).join(', ') +
       ') — só aceita foto, PDF, ou um .zip com esses dentro.'
     );
   }
-  if (messages.length > 0) {
-    errorArea.innerHTML = messages.map(m => '<div class="error-banner">' + m + '</div>').join('');
-  }
-
   fileInput.value = '';
 }
 
@@ -654,7 +671,7 @@ function processSingleFile(file) {
       .then(({ dataUrl, base64, mediaType }) => addDoc(file, dataUrl, base64, mediaType, false))
       .catch(err => {
         console.error('Erro ao normalizar imagem', file.name, err);
-        errorArea.innerHTML += '<div class="error-banner">Não consegui processar "' + escapeHtml(file.name) + '". Tenta enviar de novo, ou em outro formato (JPEG/PNG).</div>';
+        setNotice('img:' + file.name, 'Não consegui processar "' + escapeHtml(file.name) + '". Tenta enviar de novo, ou em outro formato (JPEG/PNG).');
       });
   }
 }
@@ -689,11 +706,11 @@ async function handleZipFile(zipFile) {
     }
 
     if (skipped > 0) {
-      errorArea.innerHTML = '<div class="error-banner">' + skipped + ' arquivo(s) dentro do .zip foram ignorados (não eram foto nem PDF).</div>';
+      setNotice('zipskip:' + zipFile.name, skipped + ' arquivo(s) dentro do .zip foram ignorados (não eram foto nem PDF).');
     }
   } catch (err) {
     console.error('Erro ao abrir zip', zipFile.name, err);
-    errorArea.innerHTML = '<div class="error-banner">Não consegui abrir "' + escapeHtml(zipFile.name) + '". Confere se é um .zip válido.</div>';
+    setNotice('zipfail:' + zipFile.name, 'Não consegui abrir "' + escapeHtml(zipFile.name) + '". Confere se é um .zip válido.');
   }
 }
 
@@ -713,7 +730,7 @@ function addDoc(file, dataUrl, base64, mediaType, isPdf) {
   const isDuplicate = docs.some(d => d.contentHash === contentHash && d.base64 === base64);
   if (isDuplicate) {
     duplicatesSkipped++;
-    errorArea.innerHTML = '<div class="error-banner">' + duplicatesSkipped + ' documento(s) duplicado(s) (mesmo conteúdo de outro já enviado) foram ignorados automaticamente.</div>';
+    setNotice('dup', duplicatesSkipped + ' documento(s) duplicado(s) (mesmo conteúdo de outro já enviado) foram ignorados automaticamente.');
     return;
   }
 
@@ -733,6 +750,7 @@ function addDoc(file, dataUrl, base64, mediaType, isPdf) {
   docs.push(doc);
   renderDocList();
   updateSendBtn();
+  startClassification(); // já identifica o tipo agora, pra pessoa poder corrigir antes de enviar
 }
 
 // Redesenha a imagem num canvas, o que faz o navegador aplicar a
@@ -808,7 +826,7 @@ function renderDocList() {
     } else {
       const status = document.createElement('div');
       status.className = 'doc-status';
-      status.textContent = doc.status === 'classificando' ? 'Classificando…' : 'Aguardando';
+      status.textContent = doc.blocked ? 'Não enviado' : (doc.status === 'classificando' ? 'Classificando…' : 'Aguardando');
       row.appendChild(status);
     }
 
@@ -828,70 +846,94 @@ function renderDocList() {
 }
 
 function updateSendBtn() {
-  generateBtn.disabled = docs.length === 0;
+  generateBtn.disabled = docs.length === 0 || sending || !!classifyPromise;
 }
 
 generateBtn.addEventListener('click', sendAll);
 
-async function classifyAll() {
-  errorArea.innerHTML = '';
-  let failures = 0;
-  const failedNames = [];
-  let stoppedReason = null;
+// A classificação começa assim que cada arquivo entra na lista (3 por vez).
+// O envio só usa o tipo que está na tela — inclusive o que a pessoa corrigiu.
+const CLASSIFY_CONCURRENCY = 3;
+let classifyPromise = null;
+let classifyStopReason = null; // 'Teste grátis esgotado' | 'Limite diário atingido'
+let tokenInvalid = false;
+let sending = false;
 
-  for (const doc of docs) {
-    doc.status = 'classificando';
-    renderDocList();
-    try {
-      // falha passageira (timeout, API sobrecarregada) não pode jogar o documento
-      // em "Outros" sem girar: tenta até 3 vezes antes de desistir. Erros que
-      // dependem do usuário (link inválido, teste esgotado, limite) não repetem.
-      let result;
-      for (let attempt = 1; ; attempt++) {
-        try {
-          result = await classifyDocument(doc);
-          break;
-        } catch (e) {
-          const fatal = ['Link inválido', 'Limite diário atingido', 'Teste grátis esgotado'].includes(e.message);
-          if (fatal || attempt >= 3) throw e;
-          await new Promise(r => setTimeout(r, 1500 * attempt));
+const pendingDocs = () => docs.filter(d => !d.type && !d.blocked && d.status !== 'classificando');
+
+function classificationProgressText() {
+  const done = docs.filter(d => d.type || d.blocked).length;
+  return 'Classificando ' + done + ' de ' + docs.length + '… Não feche a página.';
+}
+
+function startClassification() {
+  if (!classifyPromise) {
+    classifyPromise = (async () => {
+      while (!classifyStopReason && !tokenInvalid) {
+        const batch = pendingDocs().slice(0, CLASSIFY_CONCURRENCY);
+        if (batch.length === 0) break;
+        batch.forEach(d => { d.status = 'classificando'; });
+        renderDocList();
+        sendNote.textContent = classificationProgressText();
+        await Promise.all(batch.map(classifyOne));
+      }
+      if (classifyStopReason || tokenInvalid) {
+        docs.filter(d => !d.type).forEach(d => { d.blocked = true; d.status = 'pronto'; });
+        renderDocList();
+        if (tokenInvalid) {
+          sendNote.textContent = 'Esse link não é mais válido. Peça um novo a quem te mandou.';
+        } else if (classifyStopReason === 'Teste grátis esgotado') {
+          showTrialEnded();
+        } else {
+          sendNote.textContent = 'O limite de documentos por hoje foi atingido. Tenta novamente amanhã ou fala com quem te mandou o link.';
         }
       }
-      doc.type = result.type;
-      doc.competencia = result.competencia;
-      doc.rotation = result.rotation;
-      doc.pageNum = result.pageNum;
-      doc.side = result.side;
-      doc.status = 'pronto';
-      renderDocList();
-    } catch (err) {
-      console.error('Classification error', err);
-      if (err.message === 'Link inválido') {
-        throw err; // sem token válido não tem pra onde mandar nada, aborta de vez
-      }
-      if (err.message === 'Limite diário atingido' || err.message === 'Teste grátis esgotado') {
-        // para de classificar mais, mas mantém o que já foi classificado —
-        // esses ainda vão ser enviados, não descarta o trabalho já feito
-        doc.status = 'pronto';
-        renderDocList();
-        stoppedReason = err.message;
+    })().finally(() => {
+      classifyPromise = null;
+      if (!sending && !classifyStopReason && !tokenInvalid) sendNote.textContent = '';
+      updateSendBtn();
+      if (pendingDocs().length && !classifyStopReason && !tokenInvalid) startClassification();
+    });
+  }
+  updateSendBtn();
+  return classifyPromise;
+}
+
+async function classifyOne(doc) {
+  try {
+    // falha passageira (timeout, resposta vazia ou cortada) não pode jogar o documento
+    // em "Outros" sem girar: tenta até 3 vezes. Erros que dependem do usuário não repetem.
+    let result;
+    for (let attempt = 1; ; attempt++) {
+      try {
+        result = await classifyDocument(doc);
         break;
+      } catch (e) {
+        const fatal = ['Link inválido', 'Limite diário atingido', 'Teste grátis esgotado'].includes(e.message);
+        if (fatal || attempt >= 3) throw e;
+        await new Promise(r => setTimeout(r, 1500 * attempt));
       }
+    }
+    doc.type = result.type;
+    doc.competencia = result.competencia;
+    doc.rotation = result.rotation;
+    doc.pageNum = result.pageNum;
+    doc.side = result.side;
+  } catch (err) {
+    console.error('Classification error', err);
+    if (err.message === 'Link inválido') {
+      tokenInvalid = true;
+    } else if (err.message === 'Limite diário atingido' || err.message === 'Teste grátis esgotado') {
+      classifyStopReason = err.message;
+    } else {
       doc.type = 'Outros';
       doc.rotation = 0;
       doc.classifyFailed = true;
-      doc.status = 'pronto';
-      renderDocList();
-      failures++;
-      failedNames.push(doc.file.name);
+      setNotice('classify:' + doc.id, 'Não consegui identificar "' + escapeHtml(doc.file.name) + '" e marquei como "Outros". Confira o tipo na lista e ajuste, se precisar.');
     }
   }
-
-  if (failures > 0) {
-    errorArea.innerHTML = '<div class="error-banner">' + failures + ' documento(s) não puderam ser classificados automaticamente e foram marcados como "Outros" (' + failedNames.join(', ') + '). Confira a lista acima e ajuste o tipo, se precisar.</div>';
-  }
-
-  return stoppedReason;
+  doc.status = 'pronto';
+  renderDocList();
 }
 
 async function classifyDocument(doc) {
@@ -1096,20 +1138,33 @@ function showTrialEnded() {
 }
 
 async function sendAll() {
-  generateBtn.disabled = true;
-  groupsEl.innerHTML = '';
-  errorArea.innerHTML = '';
-  sendNote.textContent = 'Classificando ' + docs.length + ' documento(s)…';
-
-  let stoppedReason = null;
-  try {
-    stoppedReason = await classifyAll();
-  } catch (err) {
-    // só "Link inválido" chega aqui — sem token válido não tem pra onde mandar nada
-    sendNote.textContent = 'Esse link não é mais válido. Peça um novo a quem te mandou.';
-    generateBtn.disabled = false;
+  const nameInput = document.getElementById('clientName');
+  if (!nameInput.value.trim()) {
+    setNotice('nome', 'Preencha seu nome completo no Passo 1. Ele é usado para nomear os arquivos e identificar de quem são.');
+    nameInput.focus();
     return;
   }
+  clearNotice('nome');
+  sending = true;
+  updateSendBtn();
+  try {
+    await sendAllInner();
+  } finally {
+    sending = false;
+    updateSendBtn();
+  }
+}
+
+async function sendAllInner() {
+  groupsEl.innerHTML = '';
+  if (classifyPromise || pendingDocs().length) sendNote.textContent = classificationProgressText();
+  await startClassification();
+
+  if (tokenInvalid) {
+    sendNote.textContent = 'Esse link não é mais válido. Peça um novo a quem te mandou.';
+    return;
+  }
+  const stoppedReason = classifyStopReason;
 
   const classifiedDocs = docs.filter(d => d.type);
 
@@ -1121,7 +1176,6 @@ async function sendAll() {
     } else if (stoppedReason === 'Limite diário atingido') {
       sendNote.textContent = 'O limite de documentos por hoje foi atingido. Tenta novamente amanhã ou fala com quem te mandou o link.';
     }
-    generateBtn.disabled = false;
     return;
   }
 
@@ -1176,7 +1230,10 @@ async function sendAll() {
 
   const skippedCount = docs.length - classifiedDocs.length;
   if (sendSucceeded && skippedCount > 0) {
-    sendNote.textContent += ` (${skippedCount} documento(s) não coube(ram) no teste grátis e não foram enviados.)`;
+    const why = stoppedReason === 'Limite diário atingido'
+      ? 'passou(aram) do limite de documentos de hoje'
+      : 'não coube(ram) no teste grátis';
+    sendNote.textContent += ` (${skippedCount} documento(s) ${why} e não foi(ram) enviado(s).)`;
   }
 
   if (stoppedReason === 'Teste grátis esgotado' && !sendSucceeded) {
