@@ -1,39 +1,76 @@
+import crypto from 'crypto';
+
 const TRIAL_LIMIT = parseInt(process.env.TRIAL_LIMIT || '3', 10);
 
+// GET  ?token=...  → dados do advogado.
+//   - token da CONTA (guardado no login): devolve tudo, inclusive o token do link do cliente.
+//   - token de ENVIO (link do cliente): devolve só o que a tela de envio precisa (nome e e-mail).
+// POST { token, action: 'rotate-link' } → só com o token da conta: gera um novo link de envio
+//   e desativa o anterior (inclusive o link antigo que ainda era igual ao identificador interno).
 export default async function handler(req, res) {
-  if (req.method !== 'GET') {
+  if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
+    if (req.method === 'POST') return await rotateLink(req, res);
+
     const { token } = req.query;
     if (!token) return res.status(400).json({ error: 'Missing token' });
 
-    const resolved = await resolveToken(token);
-    if (!resolved) return res.status(404).json({ error: 'Invalid token' });
-
-    let trialExhausted = false;
-    if (!resolved.paid) {
-      const usageCount = await countUsageTotal(resolved.lawyerToken);
-      trialExhausted = usageCount >= TRIAL_LIMIT;
+    const t = encodeURIComponent(token);
+    const accountRows = await supabaseGet(`lawyers?account_token=eq.${t}&select=token,name,email,paid,paid_until,send_token`);
+    if (accountRows.length) {
+      const row = accountRows[0];
+      const paid = isStillPaid(row);
+      let trialExhausted = false;
+      if (!paid) {
+        const usageRows = await supabaseGet(`usage_events?token=eq.${encodeURIComponent(row.token)}&select=id`);
+        trialExhausted = usageRows.length >= TRIAL_LIMIT;
+      }
+      return res.status(200).json({
+        account: true,
+        name: row.name,
+        email: row.email,
+        paid,
+        paidUntil: row.paid_until,
+        trialExhausted,
+        sendToken: row.send_token
+      });
     }
 
-    return res.status(200).json({
-      name: resolved.name,
-      email: resolved.email,
-      paid: resolved.paid,
-      paidUntil: resolved.paidUntil,
-      trialExhausted
-    });
+    const resolved = await resolveSendToken(token);
+    if (!resolved) return res.status(404).json({ error: 'Invalid token' });
+    return res.status(200).json({ account: false, name: resolved.name, email: resolved.email });
   } catch (err) {
     console.error('lawyer-info.js error:', err);
     return res.status(500).json({ error: 'Internal error' });
   }
 }
 
-async function countUsageTotal(token) {
-  const rows = await supabaseGet(`usage_events?token=eq.${encodeURIComponent(token)}&select=id`);
-  return rows.length;
+async function rotateLink(req, res) {
+  const { token, action } = req.body || {};
+  if (!token || action !== 'rotate-link') return res.status(400).json({ error: 'Bad request' });
+
+  const rows = await supabaseGet(`lawyers?account_token=eq.${encodeURIComponent(token)}&select=token`);
+  if (!rows.length) return res.status(401).json({ error: 'Invalid token' });
+
+  const sendToken = crypto.randomBytes(24).toString('base64url');
+  const response = await fetch(`${process.env.SUPABASE_URL}/rest/v1/lawyers?token=eq.${encodeURIComponent(rows[0].token)}`, {
+    method: 'PATCH',
+    headers: {
+      apikey: process.env.SUPABASE_SERVICE_KEY,
+      Authorization: `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+      'Content-Type': 'application/json',
+      Prefer: 'return=minimal'
+    },
+    body: JSON.stringify({ send_token: sendToken, legacy_link_enabled: false })
+  });
+  if (!response.ok) {
+    console.error('rotate-link error:', await response.text());
+    return res.status(500).json({ error: 'Could not rotate link' });
+  }
+  return res.status(200).json({ sendToken });
 }
 
 async function supabaseGet(path) {
@@ -47,24 +84,19 @@ async function supabaseGet(path) {
   return response.json();
 }
 
-// Aceita dois tipos de token no mesmo parâmetro:
-// 1) o token fixo do advogado (link reutilizável, um por advogado)
-// 2) um token de cliente de uso único (gerado em /gerar-link.html), que
-//    fica marcado como "usado" depois do primeiro envio bem-sucedido
-async function resolveToken(token) {
-  const lawyerRows = await supabaseGet(`lawyers?token=eq.${encodeURIComponent(token)}&select=token,name,email,paid,paid_until`);
-  if (lawyerRows.length) {
-    return { lawyerToken: lawyerRows[0].token, name: lawyerRows[0].name, email: lawyerRows[0].email, paid: isStillPaid(lawyerRows[0]), paidUntil: lawyerRows[0].paid_until, clientLinkId: null };
-  }
+// Token de envio: o do link novo, o link antigo (enquanto não for trocado)
+// ou um token de cliente de uso único.
+async function resolveSendToken(token) {
+  const t = encodeURIComponent(token);
+  let rows = await supabaseGet(`lawyers?send_token=eq.${t}&select=name,email`);
+  if (!rows.length) rows = await supabaseGet(`lawyers?token=eq.${t}&legacy_link_enabled=eq.true&select=name,email`);
+  if (rows.length) return { name: rows[0].name, email: rows[0].email };
 
-  const clientRows = await supabaseGet(`client_links?token=eq.${encodeURIComponent(token)}&used=eq.false&select=id,lawyer_token`);
+  const clientRows = await supabaseGet(`client_links?token=eq.${t}&used=eq.false&select=lawyer_token`);
   if (!clientRows.length) return null;
-
-  const lawyerToken = clientRows[0].lawyer_token;
-  const lawyerRows2 = await supabaseGet(`lawyers?token=eq.${encodeURIComponent(lawyerToken)}&select=name,email,paid,paid_until`);
-  if (!lawyerRows2.length) return null;
-
-  return { lawyerToken, name: lawyerRows2[0].name, email: lawyerRows2[0].email, paid: isStillPaid(lawyerRows2[0]), paidUntil: lawyerRows2[0].paid_until, clientLinkId: clientRows[0].id };
+  const lawyerRows = await supabaseGet(`lawyers?token=eq.${encodeURIComponent(clientRows[0].lawyer_token)}&select=name,email`);
+  if (!lawyerRows.length) return null;
+  return { name: lawyerRows[0].name, email: lawyerRows[0].email };
 }
 
 function isStillPaid(row) {

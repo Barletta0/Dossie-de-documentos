@@ -104,9 +104,9 @@ async function register() {
     if (!response.ok) throw new Error('Falha no cadastro');
     const data = await response.json();
 
-    // já leva direto pra tela de teste, usando o próprio token do advogado
+    // já leva direto pra conta; o token da conta fica só neste navegador (nunca na URL)
     localStorage.setItem('dossiedoc_token', data.token);
-    window.location.href = '/conta.html?token=' + encodeURIComponent(data.token);
+    window.location.href = '/conta.html';
   } catch (err) {
     console.error('register error', err);
     errorArea.innerHTML = '<div class="error-banner">Não deu pra criar sua conta agora. Tenta de novo em instantes.</div>';

@@ -41,7 +41,7 @@ const errorArea = document.getElementById('errorArea');
 
 const savedToken = localStorage.getItem('dossiedoc_token');
 if (savedToken) {
-  window.location.href = '/conta.html?token=' + encodeURIComponent(savedToken);
+  window.location.href = '/conta.html';
 }
 
 loginBtn.addEventListener('click', login);
@@ -81,7 +81,7 @@ async function login() {
     const data = await response.json();
 
     localStorage.setItem('dossiedoc_token', data.token);
-    window.location.href = '/conta.html?token=' + encodeURIComponent(data.token);
+    window.location.href = '/conta.html';
   } catch (err) {
     console.error('login error', err);
     errorArea.innerHTML = '<div class="error-banner">Não deu pra entrar agora. Tenta de novo em instantes.</div>';
