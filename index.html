@@ -505,7 +505,7 @@ const token = new URLSearchParams(window.location.search).get('token');
 function goToAccountOrLogin() {
   const savedToken = localStorage.getItem('dossiedoc_token');
   if (savedToken) {
-    window.location.href = '/conta.html?token=' + encodeURIComponent(savedToken);
+    window.location.href = '/conta.html';
   } else {
     window.location.href = '/login.html';
   }
@@ -520,6 +520,7 @@ function goToAccountOrLogin() {
     const resp = await fetch('/api/lawyer-info?token=' + encodeURIComponent(savedToken));
     if (!resp.ok) return; // token salvo não é mais válido — deixa "Entrar" como está
     const data = await resp.json();
+    if (!data.account) return; // login antigo: a conta vai pedir login de novo
     const entrarBtn = document.getElementById('entrarBtn');
     if (entrarBtn && data.name) {
       entrarBtn.textContent = data.name.split(' ')[0];
@@ -529,7 +530,7 @@ function goToAccountOrLogin() {
   }
 })();
 document.getElementById('goToAccountBtn').addEventListener('click', () => {
-  window.location.href = '/conta.html?token=' + encodeURIComponent(token);
+  window.location.href = '/conta.html'; // a conta abre pelo login salvo, nunca pelo token do link
 });
 const isPreview = new URLSearchParams(window.location.search).get('preview') === '1';
 

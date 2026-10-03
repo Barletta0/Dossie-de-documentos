@@ -116,7 +116,10 @@ async function supabaseGet(path) {
 }
 
 async function resolveToken(token) {
-  const lawyerRows = await supabaseGet(`lawyers?token=eq.${encodeURIComponent(token)}&select=token`);
+  // aceita o token de envio (link novo) ou, enquanto não for trocado, o link antigo
+  const t = encodeURIComponent(token);
+  let lawyerRows = await supabaseGet(`lawyers?send_token=eq.${t}&select=token`);
+  if (!lawyerRows.length) lawyerRows = await supabaseGet(`lawyers?token=eq.${t}&legacy_link_enabled=eq.true&select=token`);
   if (lawyerRows.length) return { lawyerToken: lawyerRows[0].token, clientLinkId: null };
 
   const clientRows = await supabaseGet(`client_links?token=eq.${encodeURIComponent(token)}&used=eq.false&select=id,lawyer_token`);

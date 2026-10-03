@@ -19,7 +19,9 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Password too short' });
     }
 
-    const token = crypto.randomBytes(9).toString('base64url');
+    const token = crypto.randomBytes(9).toString('base64url'); // identificador interno
+    const accountToken = crypto.randomBytes(24).toString('base64url'); // abre a conta (só no navegador de quem fez login)
+    const sendToken = crypto.randomBytes(24).toString('base64url'); // vai no link que o cliente recebe
     const passwordHash = await bcrypt.hash(password, 10);
 
     const response = await fetch(`${process.env.SUPABASE_URL}/rest/v1/lawyers`, {
@@ -32,6 +34,9 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         name, email, token,
+        account_token: accountToken,
+        send_token: sendToken,
+        legacy_link_enabled: false,
         password_hash: passwordHash,
         terms_accepted_at: new Date().toISOString()
       })
@@ -46,7 +51,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Could not register' });
     }
 
-    return res.status(200).json({ token });
+    return res.status(200).json({ token: accountToken });
   } catch (err) {
     console.error('register.js error:', err);
     return res.status(500).json({ error: 'Internal error' });

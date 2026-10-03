@@ -14,11 +14,13 @@ export default async function handler(req, res) {
     const planKey = PLANS[plan] ? plan : 'mensal';
     const planInfo = PLANS[planKey];
 
-    const lawyerRows = await supabaseGet(`lawyers?token=eq.${encodeURIComponent(token)}&select=email`);
+    // o token que chega aqui é o da CONTA (guardado no login), nunca o do link do cliente
+    const lawyerRows = await supabaseGet(`lawyers?account_token=eq.${encodeURIComponent(token)}&select=token,email`);
     if (!lawyerRows.length) return res.status(404).json({ error: 'Lawyer not found' });
+    const lawyerId = lawyerRows[0].token; // identificador interno usado no external_reference
 
     const siteUrl = process.env.SITE_URL || `https://${req.headers.host}`;
-    const returnUrl = `${siteUrl}/conta.html?token=${encodeURIComponent(token)}`;
+    const returnUrl = `${siteUrl}/conta.html`; // a conta abre pelo login salvo, sem token na URL
 
     const tokenPrefix = (process.env.MP_ACCESS_TOKEN || 'MISSING').substring(0, 12);
     console.log('MP_ACCESS_TOKEN prefix in use:', tokenPrefix);
@@ -33,7 +35,7 @@ export default async function handler(req, res) {
         items: [
           { title: planInfo.title, quantity: 1, currency_id: 'BRL', unit_price: planInfo.price }
         ],
-        external_reference: `${token}-${planKey}`,
+        external_reference: `${lawyerId}-${planKey}`,
         back_urls: {
           success: returnUrl,
           pending: returnUrl,
@@ -46,7 +48,7 @@ export default async function handler(req, res) {
     if (!response.ok) {
       const errText = await response.text();
       console.error('Mercado Pago preference error:', errText);
-      return res.status(500).json({ error: 'Could not create checkout', detail: errText });
+      return res.status(500).json({ error: 'Could not create checkout' });
     }
 
     const preference = await response.json();
@@ -57,7 +59,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'No checkout URL returned' });
     }
 
-    return res.status(200).json({ checkoutUrl, preferenceId: preference.id, tokenPrefixUsed: tokenPrefix });
+    return res.status(200).json({ checkoutUrl, preferenceId: preference.id });
   } catch (err) {
     console.error('create-checkout.js error:', err);
     return res.status(500).json({ error: 'Internal error' });

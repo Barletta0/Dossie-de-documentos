@@ -46,6 +46,12 @@
       <a id="whatsappShareBtn" href="#" target="_blank" class="copy-btn" style="display:inline-block; margin-top:10px; text-decoration:none; background:#25D366;">Mandar no WhatsApp</a>
     </div>
     <div class="card">
+      <p class="step-title">Gerar novo link</p>
+      <p class="note">Se o link vazou ou você quer que os links antigos parem de funcionar, gere um novo. O link atual deixa de valer na hora e você precisa mandar o novo aos seus clientes.</p>
+      <button class="copy-btn" id="rotateBtn" style="background:#8a94a6;">Gerar novo link</button>
+      <p class="note" id="rotateNote"></p>
+    </div>
+    <div class="card">
       <p class="step-title">Renovar antes do vencimento</p>
       <p class="note">Ainda não renova sozinho — pra continuar sem interrupção, paga de novo aqui quando estiver perto da data acima.</p>
       <button class="primary" id="renewBtn">Pagar R$39,90</button>
@@ -75,13 +81,15 @@
 </div>
 
 <script>
-const urlToken = new URLSearchParams(window.location.search).get('token');
 document.getElementById('logoutLink').addEventListener('click', (e) => {
   e.preventDefault();
   localStorage.removeItem('dossiedoc_token');
   window.location.href = '/';
 });
-const token = urlToken || localStorage.getItem('dossiedoc_token');
+// A conta só abre com o login guardado neste navegador. Token na URL é ignorado:
+// o link que o cliente recebe nunca dá acesso à conta.
+const token = localStorage.getItem('dossiedoc_token');
+let sendToken = null;
 const loadingState = document.getElementById('loadingState');
 const invalidState = document.getElementById('invalidState');
 const paidState = document.getElementById('paidState');
@@ -129,8 +137,14 @@ async function fetchAccountData() {
     localStorage.removeItem('dossiedoc_token');
     return null;
   }
-  localStorage.setItem('dossiedoc_token', token);
-  return response.json();
+  const info = await response.json();
+  if (!info.account) {
+    // login antigo (token que era o do link): pede login de novo
+    localStorage.removeItem('dossiedoc_token');
+    return null;
+  }
+  sendToken = info.sendToken;
+  return info;
 }
 
 function render(data) {
@@ -143,8 +157,8 @@ function render(data) {
         const formatted = d.toLocaleDateString('pt-BR');
         document.getElementById('paidUntilNote').textContent = 'Válido até ' + formatted + '. Esse é o seu link definitivo — manda pros seus clientes.';
       }
-      document.getElementById('clientLink').textContent = window.location.origin + '/?token=' + token;
-      const shareLink = window.location.origin + '/?token=' + token;
+      document.getElementById('clientLink').textContent = window.location.origin + '/?token=' + sendToken;
+      const shareLink = window.location.origin + '/?token=' + sendToken;
       const shareText = encodeURIComponent('Oi! Pra eu organizar seus documentos, envia as fotos ou PDFs por esse link: ' + shareLink);
       document.getElementById('whatsappShareBtn').href = 'https://wa.me/?text=' + shareText;
       paidState.style.display = 'block';
@@ -154,6 +168,27 @@ function render(data) {
           btn.textContent = 'Copiado!';
           setTimeout(() => { btn.textContent = 'Copiar'; }, 1800);
         });
+      });
+      document.getElementById('rotateBtn').addEventListener('click', async () => {
+        if (!confirm('O link atual vai parar de funcionar. Quer gerar um novo?')) return;
+        const note = document.getElementById('rotateNote');
+        try {
+          const resp = await fetch('/api/lawyer-info', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token, action: 'rotate-link' })
+          });
+          if (!resp.ok) throw new Error('falha');
+          const out = await resp.json();
+          sendToken = out.sendToken;
+          const newLink = window.location.origin + '/?token=' + sendToken;
+          document.getElementById('clientLink').textContent = newLink;
+          document.getElementById('whatsappShareBtn').href = 'https://wa.me/?text=' + encodeURIComponent('Oi! Pra eu organizar seus documentos, envia as fotos ou PDFs por esse link: ' + newLink);
+          note.textContent = 'Pronto. O link antigo não funciona mais; o novo já está na caixa acima.';
+        } catch (err) {
+          console.error('rotate error', err);
+          note.textContent = 'Não deu pra gerar um novo link agora. Tenta de novo em instantes.';
+        }
       });
       document.getElementById('renewBtn').addEventListener('click', async () => {
         const btn = document.getElementById('renewBtn');
@@ -184,7 +219,7 @@ function render(data) {
         document.querySelector('#trialState .sub').textContent = 'Seu teste grátis de 8 documentos já acabou. Assina abaixo pra continuar.';
       }
       document.getElementById('testBtn').addEventListener('click', () => {
-        window.location.href = '/?token=' + encodeURIComponent(token) + '&preview=1';
+        window.location.href = '/?token=' + encodeURIComponent(sendToken) + '&preview=1';
       });
       document.getElementById('monthlyBtn').addEventListener('click', async () => {
         const btn = document.getElementById('monthlyBtn');
