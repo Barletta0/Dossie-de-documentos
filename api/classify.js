@@ -57,6 +57,7 @@ export default async function handler(req, res) {
     if (!response.ok) {
       const errText = await response.text();
       console.error('Anthropic API error:', errText);
+      await logEvento(resolved.lawyerToken, 'classificacao_erro', false, { status: response.status, modelo: 'claude-sonnet-5' });
       return res.status(response.status).json({ error: 'Anthropic API error' });
     }
 
@@ -69,6 +70,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ raw });
   } catch (err) {
     console.error('classify.js error:', err);
+    await logEvento(null, 'classificacao_erro', false, { interno: String(err && err.message || err).slice(0, 200) });
     return res.status(500).json({ error: 'Internal error' });
   }
 }
@@ -148,5 +150,25 @@ async function logUsage(token) {
     });
   } catch (err) {
     console.error('logUsage error:', err);
+  }
+}
+
+
+// Registro de eventos pra monitoramento. Nunca guarda conteúdo de documento,
+// só contagens e códigos de erro. Falha aqui não pode afetar o cliente.
+async function logEvento(lawyerToken, tipo, ok, detalhe) {
+  try {
+    await fetch(`${process.env.SUPABASE_URL}/rest/v1/eventos`, {
+      method: 'POST',
+      headers: {
+        apikey: process.env.SUPABASE_SERVICE_KEY,
+        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal'
+      },
+      body: JSON.stringify({ lawyer_token: lawyerToken, tipo, ok, detalhe })
+    });
+  } catch (e) {
+    console.error('logEvento error:', e);
   }
 }
