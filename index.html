@@ -912,6 +912,7 @@ async function classifyDocument(doc) {
   if (!response.ok) throw new Error('API error ' + response.status);
   const data = await response.json();
   const raw = (data.raw || '').trim();
+  if (!raw) throw new Error('Resposta vazia da IA');
 
   let type = null;
   let competencia = null;
@@ -939,7 +940,9 @@ async function classifyDocument(doc) {
 
     side = parsed.lado === 'frente' || parsed.lado === 'verso' ? parsed.lado : null;
   } catch (err) {
-    type = DOC_TYPES.find(t => raw.toLowerCase().includes(t.toLowerCase()));
+    // JSON cortado ou ilegível: trata como falha (o navegador tenta de novo)
+    // em vez de aceitar um palpite sem rotação nem data
+    throw new Error('Resposta ilegível da IA');
   }
 
   return { type: type || 'Outros', competencia, rotation, pageNum, side };
@@ -970,29 +973,23 @@ async function buildPdfsByType(docsToInclude) {
     groups[t].push(doc);
   });
 
-  // dentro de cada tipo: primeiro por número de página (quando identificado —
-  // resolve o caso de mandar a página 2 antes da página 1), depois frente antes
-  // de verso (documento de identidade com duas faces), depois por data de
-  // competência, e por último mantém a ordem de envio
+  // dentro de cada tipo: ordem definida pelos critérios abaixo (data, lado,
+  // página) e, no empate, a ordem de envio
   Object.keys(groups).forEach(type => {
     // cada critério só decide quando os dois documentos DIFEREM nele; se empatam,
-    // passa pro próximo. (Antes, dois holerites "Página 1 de 1" empatavam na
-    // página e nunca chegavam a ser comparados pela data.) Documento sem a
-    // informação vai pro fim em cada critério, e o último desempate é a ordem
-    // de envio (doc.id), o que mantém a ordenação consistente.
+    // passa pro próximo. Documento sem a informação vai pro fim em cada critério.
+    // tipos que se repetem por mês: data primeiro. Demais tipos (TRCT, contrato,
+    // RG...): lado, depois número da página, e a data só como último recurso.
+    const MONTHLY = ['Holerite/Contracheque', 'Extrato do FGTS', 'Comprovante Bancário', 'Comprovante de Residência'];
+    const sideRank = s => (s === 'frente' ? 0 : s === 'verso' ? 1 : 2);
+    const cmpNullLast = (x, y) => (x == null && y == null ? 0 : x == null ? 1 : y == null ? -1 : (x < y ? -1 : x > y ? 1 : 0));
+    const monthly = MONTHLY.includes(type);
     groups[type].sort((a, b) => {
-      if (a.competencia !== b.competencia) {
-        if (!a.competencia) return 1;
-        if (!b.competencia) return -1;
-        return a.competencia.localeCompare(b.competencia);
-      }
-      const sideRank = s => (s === 'frente' ? 0 : s === 'verso' ? 1 : 2);
-      if (sideRank(a.side) !== sideRank(b.side)) return sideRank(a.side) - sideRank(b.side);
-      if (a.pageNum !== b.pageNum) {
-        if (a.pageNum == null) return 1;
-        if (b.pageNum == null) return -1;
-        return a.pageNum - b.pageNum;
-      }
+      const byDate = cmpNullLast(a.competencia, b.competencia);
+      const bySide = sideRank(a.side) - sideRank(b.side);
+      const byPage = cmpNullLast(a.pageNum, b.pageNum);
+      const order = monthly ? [byDate, bySide, byPage] : [bySide, byPage, byDate];
+      for (const c of order) if (c !== 0) return c;
       return a.id - b.id;
     });
   });
@@ -1087,6 +1084,17 @@ function renderGroups(results) {
   });
 }
 
+// O cartão de cobrança é do advogado. Quem abre o link de envio é o cliente dele,
+// então fora do modo de teste (preview=1) mostra só uma mensagem neutra.
+function showTrialEnded() {
+  if (isPreview) {
+    document.getElementById('upgradeCard').style.display = 'block';
+    document.getElementById('upgradeCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } else {
+    sendNote.textContent = 'Não foi possível enviar seus documentos agora. Avise quem te mandou o link.';
+  }
+}
+
 async function sendAll() {
   generateBtn.disabled = true;
   groupsEl.innerHTML = '';
@@ -1109,8 +1117,7 @@ async function sendAll() {
     // nada foi classificado antes de parar — não tem o que enviar
     sendNote.textContent = '';
     if (stoppedReason === 'Teste grátis esgotado') {
-      document.getElementById('upgradeCard').style.display = 'block';
-      document.getElementById('upgradeCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      showTrialEnded();
     } else if (stoppedReason === 'Limite diário atingido') {
       sendNote.textContent = 'O limite de documentos por hoje foi atingido. Tenta novamente amanhã ou fala com quem te mandou o link.';
     }
@@ -1146,12 +1153,19 @@ async function sendAll() {
         body: JSON.stringify({ clientName, files: filesPayload, token, meta })
       });
       if (response.status === 401) throw new Error('Link inválido');
+      if (response.status === 409) {
+        sendNote.textContent = 'Esses documentos já foram enviados há poucos minutos. Não precisa enviar de novo.';
+        sendSucceeded = true;
+        throw new Error('Já enviado');
+      }
       if (!response.ok) throw new Error('Falha no envio (' + response.status + ')');
       sendNote.textContent = 'Documentos enviados. Também dá pra baixar cada PDF abaixo, se precisar.';
       sendSucceeded = true;
     } catch (err) {
       console.error('Send error', err);
-      if (err.message === 'Link inválido') {
+      if (err.message === 'Já enviado') {
+        // mensagem já mostrada acima
+      } else if (err.message === 'Link inválido') {
         sendNote.textContent = 'Esse link não é mais válido. Peça um novo a quem te mandou.';
       } else {
         sendNote.textContent = 'O envio direto falhou, tentando um jeito alternativo…';
@@ -1165,12 +1179,19 @@ async function sendAll() {
     sendNote.textContent += ` (${skippedCount} documento(s) não coube(ram) no teste grátis e não foram enviados.)`;
   }
 
-  if (stoppedReason === 'Teste grátis esgotado') {
-    document.getElementById('upgradeCard').style.display = 'block';
-    document.getElementById('upgradeCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (stoppedReason === 'Teste grátis esgotado' && !sendSucceeded) {
+    showTrialEnded();
+  } else if (stoppedReason === 'Teste grátis esgotado' && isPreview) {
+    showTrialEnded();
   }
 
-  generateBtn.disabled = false;
+  // depois de enviar, limpa a lista: evita reenvio em dobro dos mesmos arquivos
+  if (sendSucceeded) {
+    docs = docs.filter(d => !classifiedDocs.includes(d));
+    renderDocList();
+    generateBtn.textContent = 'Enviar mais documentos';
+  }
+  updateSendBtn();
 }
 
 async function sendViaStorageLink(clientName, filesPayload) {
