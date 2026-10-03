@@ -15,6 +15,7 @@ export default async function handler(req, res) {
     }
 
     if (!resolved.paid && (await countUsageTotal(resolved.lawyerToken)) >= TRIAL_LIMIT) {
+      await logEvento(resolved.lawyerToken, 'limite_teste', false, { via_link_cliente: !!resolved.clientLinkId });
       return res.status(402).json({ error: 'Trial limit reached' });
     }
 
@@ -40,7 +41,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-5',
-        max_tokens: 320,
+        max_tokens: 800,
         messages: [{
           role: 'user',
           content: [
@@ -64,6 +65,14 @@ export default async function handler(req, res) {
     const data = await response.json();
     const textBlock = (data.content || []).find(b => b.type === 'text');
     const raw = textBlock ? textBlock.text.trim() : '';
+
+    // resposta vazia ou cortada pelo limite de tokens não pode virar "sucesso":
+    // devolve erro (o navegador tenta de novo) e NÃO conta no teste grátis
+    if (!raw || data.stop_reason === 'max_tokens') {
+      console.error('classify: resposta incompleta', { stop_reason: data.stop_reason, vazia: !raw });
+      await logEvento(resolved.lawyerToken, 'classificacao_erro', false, { motivo: !raw ? 'resposta_vazia' : 'cortada_max_tokens', stop_reason: data.stop_reason || null });
+      return res.status(502).json({ error: 'Resposta incompleta da IA' });
+    }
 
     await logUsage(resolved.lawyerToken);
 

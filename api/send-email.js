@@ -1,3 +1,5 @@
+import { createHash } from 'crypto';
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -15,6 +17,12 @@ export default async function handler(req, res) {
 
     if (!clientName || !Array.isArray(files) || files.length === 0) {
       return res.status(400).json({ error: 'Missing clientName or files' });
+    }
+
+    // mesmo conteúdo já enviado há poucos minutos (duplo clique, reenvio da mesma lista)
+    const fingerprint = makeFingerprint(files);
+    if (await jaEnviadoRecentemente(resolved.lawyerToken, fingerprint)) {
+      return res.status(409).json({ error: 'Duplicate send' });
     }
 
     const attachments = files.map(f => ({
@@ -40,7 +48,7 @@ export default async function handler(req, res) {
     if (!response.ok) {
       const errText = await response.text();
       console.error('Resend API error:', errText);
-      await logEvento(resolved.lawyerToken, 'envio', false, { ...safeMeta(meta, files), status: response.status });
+      await logEvento(resolved.lawyerToken, 'envio', false, { ...{ ...safeMeta(meta, files), fingerprint }, status: response.status });
       return res.status(response.status).json({ error: 'Email send error' });
     }
 
@@ -48,7 +56,7 @@ export default async function handler(req, res) {
       await markClientLinkUsed(resolved.clientLinkId);
     }
 
-    await logEvento(resolved.lawyerToken, 'envio', true, safeMeta(meta, files));
+    await logEvento(resolved.lawyerToken, 'envio', true, { ...safeMeta(meta, files), fingerprint });
     return res.status(200).json({ success: true });
   } catch (err) {
     console.error('send-email.js error:', err);
@@ -109,6 +117,23 @@ async function markClientLinkUsed(clientLinkId) {
 
 
 // Só números e nomes de tipo — nada do conteúdo dos documentos.
+function makeFingerprint(files) {
+  const raw = files.map(f => `${f.filename}:${(f.base64 || '').length}`).sort().join('|');
+  return createHash('sha256').update(raw).digest('hex').slice(0, 32);
+}
+
+async function jaEnviadoRecentemente(lawyerToken, fingerprint) {
+  try {
+    const since = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const url = `${process.env.SUPABASE_URL}/rest/v1/eventos?tipo=eq.envio&ok=eq.true&lawyer_token=eq.${encodeURIComponent(lawyerToken)}&created_at=gte.${since}&detalhe->>fingerprint=eq.${fingerprint}&select=id&limit=1`;
+    const r = await fetch(url, { headers: { apikey: process.env.SUPABASE_SERVICE_KEY, Authorization: `Bearer ${process.env.SUPABASE_SERVICE_KEY}` } });
+    if (!r.ok) return false;
+    return (await r.json()).length > 0;
+  } catch (e) {
+    return false; // na dúvida, deixa enviar
+  }
+}
+
 function safeMeta(meta, files) {
   const m = meta && typeof meta === 'object' ? meta : {};
   const n = v => (Number.isFinite(Number(v)) ? Number(v) : null);
